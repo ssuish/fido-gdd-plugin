@@ -49,6 +49,7 @@ dist/
 
 # Generated project artifacts
 drift_report.md
+!showcase/godot-deckbuilder/drift_report.md
 
 # OS
 .DS_Store

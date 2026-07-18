@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource path="res://main.gd" type="Script" id="1_main"]
+[ext_resource path="res://deck_builder.gd" type="Script" id="2_deck"]
+
+[node name="DeckBuilderShowcase" type="Node"]
+script = ExtResource("1_main")
+
+[node name="DeckBuilder" type="Node" parent="."]
+script = ExtResource("2_deck")
+
+[node name="UI" type="Control" parent="."]
+
+[node name="Status" type="Label" parent="UI"]
+offset_left = 32.0
+offset_top = 32.0
+text = "READY"
+
+[node name="Strike" type="Button" parent="UI"]
+offset_left = 32.0
+offset_top = 96.0
+text = "Strike"
+
+[node name="Block" type="Button" parent="UI"]
+offset_left = 152.0
+offset_top = 96.0
+text = "Block"
+
+[node name="EndTurn" type="Button" parent="UI"]
+offset_left = 272.0
+offset_top = 96.0
+text = "End turn"

@@ -1,0 +1,19 @@
+; Engine configuration file.
+; Deterministic showcase fixture for GDD Drift Detector.
+
+config_version=5
+
+[application]
+
+config/name="GDD Drift Detector Deck Builder"
+run/main_scene="res://main.tscn"
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=540
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
