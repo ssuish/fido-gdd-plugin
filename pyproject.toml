@@ -1,0 +1,36 @@
+[project]
+name = "gdd-drift-detector"
+version = "0.1.0"
+description = "Local, deterministic GDD-to-GDScript drift detection."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "tree-sitter>=0.25,<0.27",
+  "tree-sitter-language-pack>=0.13,<0.14",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.13,<2",
+  "pytest>=8.3,<9",
+  "ruff>=0.8,<1",
+]
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]
