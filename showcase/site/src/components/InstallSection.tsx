@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { trackShowcaseEvent } from "../analytics";
+import { copyText } from "../platform/clipboard";
 import { copyConfirmationMessage, marketplaceCommand } from "../discovery/state";
 
 const INSTALL_DOCS_URL = "https://github.com/ssuish/gdd-plugin#install-the-codex-plugin";
@@ -9,14 +10,9 @@ export function InstallSection() {
   const [copyStatus, setCopyStatus] = useState("");
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard?.writeText(MARKETPLACE_COMMAND);
-      setCopyStatus(copyConfirmationMessage(true));
-      trackShowcaseEvent("marketplace_command_copy", { result: "ok" });
-    } catch {
-      setCopyStatus(copyConfirmationMessage(false));
-      trackShowcaseEvent("marketplace_command_copy", { result: "error" });
-    }
+    const result = await copyText(MARKETPLACE_COMMAND);
+    setCopyStatus(copyConfirmationMessage(result));
+    trackShowcaseEvent("marketplace_command_copy", { result });
   }
 
   return (

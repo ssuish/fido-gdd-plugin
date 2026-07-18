@@ -62,6 +62,22 @@ _Avoid_: fake result (the mismatch must exist in the fixture inputs)
 The visitor action the website is designed to earn: installing the local Codex plugin after understanding the problem through the playable demo.
 _Avoid_: signup, download (when the install action is the intended outcome)
 
+**Primary showcase audience**:
+Solo developers, indie developers, and small-team Godot developers using GDScript who are actively iterating on a game.
+_Avoid_: generic game developers (when describing the first audience the showcase is optimized for)
+
+**Guided discovery**:
+A freely playable showcase-game experience that offers contextual, dismissible hints after a short pause or relevant action without blocking play.
+_Avoid_: linear tutorial, forced walkthrough
+
+**Evidence reveal**:
+The transition from a visitor action in the showcase game to the corresponding drift finding and concrete source evidence.
+_Avoid_: decorative result, dashboard reveal
+
+**Privacy-preserving showcase measurement**:
+First-party measurement of meaningful showcase interactions that collects no project content and does not establish a persistent visitor identity.
+_Avoid_: third-party tracking, repository telemetry
+
 **Install handoff**:
 The website’s concrete instructions and standalone plugin package that move a visitor from the showcase to a local Codex plugin installation.
 _Avoid_: onboarding funnel (for this local workflow), monorepo-only install

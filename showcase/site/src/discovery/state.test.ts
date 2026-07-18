@@ -61,8 +61,9 @@ describe("discovery state", () => {
   });
 
   it("copy confirmation does not rely on animation", () => {
-    assert.equal(copyConfirmationMessage(true), "Command copied to clipboard.");
-    assert.match(copyConfirmationMessage(false), /Copy failed/);
+    assert.equal(copyConfirmationMessage("ok"), "Command copied to clipboard.");
+    assert.match(copyConfirmationMessage("unavailable"), /Clipboard unavailable/);
+    assert.match(copyConfirmationMessage("error"), /Copy failed/);
     assert.equal(marketplaceCommand(), "codex plugin marketplace add ./marketplace.json");
   });
 });

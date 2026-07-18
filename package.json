@@ -1,6 +1,9 @@
 {
   "name": "gdd-drift-detector-workspace",
   "private": true,
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
   "scripts": {
     "showcase:dev": "npm --prefix showcase/site run dev",
     "showcase:build": "npm --prefix showcase/site run build",

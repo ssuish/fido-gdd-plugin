@@ -1,5 +1,6 @@
 import { HINT_COPY, findingLabel, type HintKey } from "./scenario.ts";
 import type { Finding } from "../types.ts";
+import type { ClipboardCopyResult } from "../platform/clipboard";
 
 export type HintStage = "idle" | HintKey | "dismissed";
 
@@ -102,6 +103,10 @@ export function marketplaceCommand(): string {
   return "codex plugin marketplace add ./marketplace.json";
 }
 
-export function copyConfirmationMessage(ok: boolean): string {
-  return ok ? "Command copied to clipboard." : "Copy failed. Select the command and copy manually.";
+export function copyConfirmationMessage(result: ClipboardCopyResult): string {
+  if (result === "ok") return "Command copied to clipboard.";
+  if (result === "unavailable") {
+    return "Clipboard unavailable. Select the command and copy manually.";
+  }
+  return "Copy failed. Select the command and copy manually.";
 }
