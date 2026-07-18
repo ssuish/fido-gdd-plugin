@@ -74,4 +74,9 @@ temp/
 
 # Project skills (reinstall with: npx skills experimental_install)
 .agents/
+!.agents/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
 docs/

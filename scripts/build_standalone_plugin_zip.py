@@ -17,7 +17,9 @@ PLUGIN_FILES = (
 )
 
 ROOT_FILES = (
+    "INSTALL.md",
     "marketplace.json",
+    ".agents/plugins/marketplace.json",
     "pyproject.toml",
     "uv.lock",
 )
@@ -25,7 +27,13 @@ ROOT_FILES = (
 
 def collect_members() -> list[tuple[Path, str]]:
     members: list[tuple[Path, str]] = []
-    for relative in ROOT_FILES + PLUGIN_FILES:
+    for relative in ROOT_FILES:
+        path = ROOT / relative
+        if not path.is_file():
+            raise FileNotFoundError(f"missing package member: {relative}")
+        members.append((path, relative))
+
+    for relative in PLUGIN_FILES:
         path = ROOT / relative
         if not path.is_file():
             raise FileNotFoundError(f"missing package member: {relative}")

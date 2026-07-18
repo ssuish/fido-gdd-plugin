@@ -1,0 +1,20 @@
+{
+  "name": "gdd-drift-detector-repo",
+  "interface": {
+    "displayName": "Fido"
+  },
+  "plugins": [
+    {
+      "name": "gdd-drift-detector",
+      "source": {
+        "source": "local",
+        "path": "./plugins/gdd-drift-detector"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

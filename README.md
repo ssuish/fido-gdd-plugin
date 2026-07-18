@@ -38,15 +38,31 @@ not the current install path.
 1. Download
    [`gdd-drift-detector.zip`](showcase/site/public/downloads/gdd-drift-detector.zip)
    (also linked from the [showcase](#try-the-showcase) install section).
-2. Extract the ZIP somewhere durable (for example `~/codex-plugins/gdd-drift-detector`).
-3. From the extracted directory (the folder that contains `marketplace.json`), run:
+2. Extract it to a durable directory.
+3. Install Codex CLI if needed, then add the extracted directory as a local
+   marketplace:
 
 ```sh
-codex plugin marketplace add ./marketplace.json
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+codex
+codex plugin marketplace add /absolute/path/to/extracted-fido
+codex
+# run /plugins, select Fido, install
 ```
 
-1. Confirm **Fido** appears in Codex. First drift scan may take a moment while
-   `uv` provisions a cached environment from the embedded lockfile.
+Replace the placeholder with the extracted ZIP directory. First drift scan may
+take a moment while `uv` provisions a cached environment from the embedded
+lockfile. Start a new Codex session after installing.
+
+**ChatGPT desktop — local marketplace**
+
+1. Extract the ZIP to a durable directory and restart ChatGPT.
+2. Open ChatGPT Work mode or Codex, then open **Plugins**.
+3. Select the local Fido marketplace and install **Fido**.
+4. Start a new chat before using the plugin.
+
+The ZIP is discovered through its local marketplace metadata. The full handoff
+is in [`INSTALL.md`](INSTALL.md).
 
 **Option B — From this repository**
 
@@ -55,7 +71,7 @@ Clone the repo and add the root marketplace manifest:
 ```sh
 git clone <this-repo-url>
 cd codex-hackathon
-codex plugin marketplace add ./marketplace.json
+codex plugin marketplace add /absolute/path/to/codex-hackathon
 ```
 
 `GDD_DETECTOR_ROOT` is an optional fallback if you run the launcher outside the

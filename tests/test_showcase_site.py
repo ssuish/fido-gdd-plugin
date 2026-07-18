@@ -68,6 +68,10 @@ def test_site_declares_accessible_states_and_responsive_reduced_motion_rules() -
     assert "setup-gdd" in source
     assert "detect-drift" in source
     assert "copyConfirmationMessage" in source
+    assert "codex plugin marketplace add /absolute/path/to/extracted-fido" in source
+    assert "ChatGPT Work mode or Codex" in source
+    assert "INSTALL.md" in source
+    assert "directly through the Codex app" not in source
     assert "@media (max-width: 767px)" in styles
     assert "prefers-reduced-motion" in styles
     assert "prefers-color-scheme" not in styles

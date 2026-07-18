@@ -24,7 +24,10 @@ skip optional headless Godot checks; headless is not an MVP release gate. Web va
 requires `public/game/index.html`.
 
 The downloadable artifact at `showcase/site/public/downloads/gdd-drift-detector.zip`
-must be the **Standalone plugin package**: marketplace metadata, plugin skills
-(`setup-gdd`, `detect-drift`), launcher, detector `src/`, `pyproject.toml`, and
-`uv.lock`. Rebuild it with `python3 scripts/build_standalone_plugin_zip.py`
-before release checks.
+must be the **Standalone plugin package** with this layout: `INSTALL.md`, both
+`marketplace.json` copies, `plugins/gdd-drift-detector/.codex-plugin/plugin.json`,
+plugin skills (`setup-gdd`, `detect-drift`), launcher, detector `src/`,
+`pyproject.toml`, and `uv.lock`. Marketplace entries must use
+`./plugins/gdd-drift-detector` so both Codex CLI and ChatGPT desktop resolve the
+same extracted plugin. Rebuild it with
+`python3 scripts/build_standalone_plugin_zip.py` before release checks.

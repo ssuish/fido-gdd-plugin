@@ -64,6 +64,9 @@ describe("discovery state", () => {
     assert.equal(copyConfirmationMessage("ok"), "Command copied to clipboard.");
     assert.match(copyConfirmationMessage("unavailable"), /Clipboard unavailable/);
     assert.match(copyConfirmationMessage("error"), /Copy failed/);
-    assert.equal(marketplaceCommand(), "codex plugin marketplace add ./marketplace.json");
+    assert.equal(
+      marketplaceCommand(),
+      "codex plugin marketplace add /absolute/path/to/extracted-fido",
+    );
   });
 });

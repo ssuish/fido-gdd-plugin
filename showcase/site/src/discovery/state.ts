@@ -100,7 +100,7 @@ export function revealRelatedFinding(
 }
 
 export function marketplaceCommand(): string {
-  return "codex plugin marketplace add ./marketplace.json";
+  return "codex plugin marketplace add /absolute/path/to/extracted-fido";
 }
 
 export function copyConfirmationMessage(result: ClipboardCopyResult): string {

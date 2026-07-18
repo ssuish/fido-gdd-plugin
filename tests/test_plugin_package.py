@@ -29,12 +29,16 @@ def test_plugin_manifest_and_marketplace_reference_shared_detector() -> None:
         (PLUGIN / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
     )
     marketplace = json.loads((ROOT / "marketplace.json").read_text(encoding="utf-8"))
+    chatgpt_marketplace = json.loads(
+        (ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8")
+    )
 
     assert manifest["name"] == "gdd-drift-detector"
     assert (PLUGIN / "skills" / "detect-drift" / "SKILL.md").is_file()
     assert (PLUGIN / "skills" / "setup-gdd" / "SKILL.md").is_file()
     assert (PLUGIN / "scripts" / "detect-drift.py").is_file()
     assert marketplace["plugins"][0]["source"]["path"] == "./plugins/gdd-drift-detector"
+    assert chatgpt_marketplace == marketplace
 
 
 def test_launcher_help_does_not_provision_or_scan() -> None:

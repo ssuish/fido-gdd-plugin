@@ -20,11 +20,12 @@ def resolve_detector_root(
     if explicit is not None:
         return explicit.resolve()
 
-    package_root = plugin_root.parents[1]
-    if (package_root / "pyproject.toml").is_file() and (
-        package_root / "src" / "gdd_drift_detector"
-    ).is_dir():
-        return package_root.resolve()
+    package_roots = (plugin_root, plugin_root.parents[1])
+    for package_root in package_roots:
+        if (package_root / "pyproject.toml").is_file() and (
+            package_root / "src" / "gdd_drift_detector"
+        ).is_dir():
+            return package_root.resolve()
 
     env_root = os.environ.get("GDD_DETECTOR_ROOT")
     if env_root:

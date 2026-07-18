@@ -3,7 +3,7 @@ import { trackShowcaseEvent } from "../analytics";
 import { copyText } from "../platform/clipboard";
 import { copyConfirmationMessage, marketplaceCommand } from "../discovery/state";
 
-const INSTALL_DOCS_URL = "https://github.com/ssuish/gdd-plugin#install-the-codex-plugin";
+const INSTALL_DOCS_URL = "https://github.com/ssuish/gdd-plugin/blob/main/INSTALL.md";
 const MARKETPLACE_COMMAND = marketplaceCommand();
 
 export function InstallSection() {
@@ -44,21 +44,30 @@ export function InstallSection() {
         </li>
         <li className="install-step">
           <span className="step-label">Add marketplace</span>
-          <p>From the extracted folder that contains marketplace.json:</p>
+          <p>
+            Point Codex at the extracted ZIP directory, then install Fido from <code>/plugins</code>:
+          </p>
           <div className="install-command">
             <code>{MARKETPLACE_COMMAND}</code>
             <div className="install-actions">
               <button type="button" onClick={handleCopy}>
                 Copy command
               </button>
-              <a className="manifest-link" href="./marketplace.json" download>
-                Download marketplace manifest
+              <a className="manifest-link" href={INSTALL_DOCS_URL} target="_blank" rel="noreferrer">
+                Open install guide
               </a>
             </div>
             <p className="copy-status" aria-live="polite">
               {copyStatus}
             </p>
           </div>
+        </li>
+        <li className="install-step">
+          <span className="step-label">ChatGPT desktop</span>
+          <p>
+            Restart ChatGPT, open ChatGPT Work mode or Codex, then open <strong>Plugins</strong>.
+            Select the local Fido marketplace, install Fido, and start a new chat.
+          </p>
         </li>
         <li className="install-step">
           <span className="step-label">Scan</span>
