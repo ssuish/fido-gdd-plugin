@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 FindingStatus = Literal["MATCHED", "MISSING", "PLANNED", "RENAMED?", "ORPHANED"]
+ScanState = Literal["COMPLETE", "PARTIAL"]
 ScanFailureCode = Literal[
     "INVALID_PROJECT",
     "INVALID_CONFIG",
@@ -80,6 +81,8 @@ class FindingEvidence:
     code_line: int | None
     code_symbol_path: str | None
     containment_path: tuple[str, ...] = ()
+    gdd_excerpt: str | None = None
+    code_excerpt: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -89,6 +92,8 @@ class FindingEvidence:
             "code_line": self.code_line,
             "code_symbol_path": self.code_symbol_path,
             "containment_path": list(self.containment_path),
+            "gdd_excerpt": self.gdd_excerpt,
+            "code_excerpt": self.code_excerpt,
         }
 
 
@@ -106,6 +111,20 @@ class Relationship:
             "target": self.target_id,
             "type": self.kind,
         }
+
+
+@dataclass(frozen=True)
+class ScanWarning:
+    """A per-file omission that qualifies an otherwise usable scan."""
+
+    path: str
+    code: str
+    reason: str
+    impact: str
+    next_action: str
+
+    def to_dict(self) -> dict[str, str]:
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -127,15 +146,62 @@ class ScanResult:
     findings: tuple[Finding, ...]
     candidates: tuple[CandidateEntity, ...]
     relationships: tuple[Relationship, ...]
+    state: ScanState
+    warnings: tuple[ScanWarning, ...]
     summary: ScanSummary
     duration_ms: int
 
     def to_dict(self) -> dict[str, object]:
+        priority_findings: list[dict[str, object]] = []
+        for finding in self.findings:
+            if finding.status not in {"MISSING", "RENAMED?", "ORPHANED"}:
+                continue
+            name = (
+                finding.tracked_entity.name
+                if finding.tracked_entity
+                else finding.code_entity.name
+                if finding.code_entity
+                else "Unknown"
+            )
+            priority_findings.append(
+                {
+                    "status": finding.status,
+                    "name": name,
+                    "evidence": (
+                        finding.evidence.to_dict() if finding.evidence else None
+                    ),
+                }
+            )
+        next_actions: list[str] = []
+        if self.warnings:
+            next_actions.append("Resolve warnings, then rerun the local scan.")
+        if any(finding.status == "MISSING" for finding in self.findings):
+            next_actions.append("Implement or remove missing tracked entities.")
+        if any(finding.status == "RENAMED?" for finding in self.findings):
+            next_actions.append("Confirm rename candidates in drift.toml.")
+        if any(finding.status == "ORPHANED" for finding in self.findings):
+            next_actions.append(
+                "Document, track, or remove orphaned top-level symbols."
+            )
+        if not next_actions:
+            next_actions.append("Review drift_report.md for full scan evidence.")
+        summary = self.summary.to_dict()
+        summary.update(
+            {
+                "state": self.state,
+                "coverage_qualified": self.state == "PARTIAL",
+                "priority_findings": priority_findings,
+                "warning_count": len(self.warnings),
+                "report": "drift_report.md",
+                "next_actions": next_actions,
+            }
+        )
         return {
             "schema_version": self.schema_version,
             "scan": {
                 "project_root": self.project_root,
                 "duration_ms": self.duration_ms,
+                "state": self.state,
             },
             "tracked_entities": [entity.to_dict() for entity in self.tracked_entities],
             "code_entities": [entity.to_dict() for entity in self.code_entities],
@@ -144,7 +210,9 @@ class ScanResult:
             "relationships": [
                 relationship.to_dict() for relationship in self.relationships
             ],
-            "summary": self.summary.to_dict(),
+            "state": self.state,
+            "warnings": [warning.to_dict() for warning in self.warnings],
+            "summary": summary,
         }
 
 

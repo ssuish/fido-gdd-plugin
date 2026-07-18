@@ -24,6 +24,7 @@ from .models import (
     ScanFailure,
     ScanResult,
     ScanSummary,
+    ScanWarning,
     TrackedEntity,
 )
 
@@ -72,11 +73,30 @@ def scan(project_root: Path, config: ScanConfig | None = None) -> ScanResult:
     _validate_project(root)
     config = config or ScanConfig()
     project_config = _read_project_config(root)
-    resolved_config = _resolve_scan_config(root, config, project_config)
-    tracked, candidates = _parse_gdd_sources(root, resolved_config.gdd_paths)
-    parsed_code = tuple(
-        _parse_gdscript(root, path) for path in resolved_config.source_paths
+    resolved_config, config_warnings = _resolve_scan_config(
+        root, config, project_config
     )
+    tracked, candidates, gdd_warnings = _parse_gdd_sources(
+        root, resolved_config.gdd_paths
+    )
+    parsed_code: list[tuple[list[CodeEntity], list[Relationship]]] = []
+    source_warnings: list[ScanWarning] = []
+    for path in resolved_config.source_paths:
+        try:
+            parsed_code.append(_parse_gdscript(root, path))
+        except ScanFailure as error:
+            if error.code not in {"UNSUPPORTED_SOURCE", "UNREADABLE_INPUT"}:
+                raise
+            source_warnings.append(
+                _warning(
+                    error.path or root / path,
+                    error.code,
+                    error.message,
+                    "Implementation entities from this file are excluded; matches "
+                    "and orphan findings may be incomplete.",
+                    "Fix GDScript syntax, then rerun the local scan.",
+                )
+            )
     code = tuple(entity for entities, _ in parsed_code for entity in entities)
     relationships = tuple(
         relationship
@@ -90,7 +110,8 @@ def scan(project_root: Path, config: ScanConfig | None = None) -> ScanResult:
             entity,
         )
     mappings = project_config.accepted_mappings or {}
-    findings = _findings(tracked, code, by_name, mappings)
+    findings = _findings(root, tracked, code, by_name, mappings)
+    warnings = (*config_warnings, *gdd_warnings, *source_warnings)
     active_findings = tuple(
         finding
         for finding in findings
@@ -104,13 +125,15 @@ def scan(project_root: Path, config: ScanConfig | None = None) -> ScanResult:
         coverage_percent=(matched / total * 100) if total else None,
     )
     result = ScanResult(
-        schema_version="1.1",
+        schema_version="1.2",
         project_root=str(root),
         tracked_entities=tracked,
         code_entities=code,
         findings=findings,
         candidates=candidates,
         relationships=relationships,
+        state="PARTIAL" if warnings else "COMPLETE",
+        warnings=warnings,
         summary=summary,
         duration_ms=int((time.perf_counter() - started) * 1000),
     )
@@ -183,7 +206,7 @@ def _read_patterns(
 
 def _resolve_scan_config(
     root: Path, config: ScanConfig, project_config: _ProjectConfig
-) -> ScanConfig:
+) -> tuple[ScanConfig, tuple[ScanWarning, ...]]:
     gdd_paths = config.gdd_paths or _discover_paths(
         root,
         project_config.gdd_patterns or _DEFAULT_GDD_PATTERNS,
@@ -192,8 +215,13 @@ def _resolve_scan_config(
     source_paths = config.source_paths or _discover_paths(
         root, project_config.source_patterns or ("**/*.gd",), project_config.exclusions
     )
-    _validate_inputs(root, gdd_paths, source_paths)
-    return ScanConfig(gdd_paths=gdd_paths, source_paths=source_paths)
+    readable_gdd, readable_sources, warnings = _validate_inputs(
+        root, gdd_paths, source_paths
+    )
+    return (
+        ScanConfig(gdd_paths=readable_gdd, source_paths=readable_sources),
+        warnings,
+    )
 
 
 def _discover_paths(
@@ -213,9 +241,25 @@ def _is_excluded(path: Path, exclusions: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatchcase(value, pattern) for pattern in exclusions)
 
 
+def _warning(
+    path: Path,
+    code: str,
+    reason: str,
+    impact: str,
+    next_action: str,
+) -> ScanWarning:
+    return ScanWarning(
+        path=str(path),
+        code=code,
+        reason=reason,
+        impact=impact,
+        next_action=next_action,
+    )
+
+
 def _validate_inputs(
     root: Path, gdd_paths: tuple[Path, ...], source_paths: tuple[Path, ...]
-) -> None:
+) -> tuple[tuple[Path, ...], tuple[Path, ...], tuple[ScanWarning, ...]]:
     if not gdd_paths or not source_paths:
         raise ScanFailure(
             "INVALID_CONFIG", "at least one GDD path and one source path are required"
@@ -234,21 +278,71 @@ def _validate_inputs(
                 "source inputs must be GDScript files",
                 root / relative_path,
             )
-    for relative_path in (*gdd_paths, *source_paths):
+    warnings: list[ScanWarning] = []
+    readable_gdd: list[Path] = []
+    readable_sources: list[Path] = []
+    for relative_path in gdd_paths:
         path = root / relative_path
         if not path.is_file() or not path.stat().st_mode & 0o444:
-            raise ScanFailure(
-                "UNREADABLE_INPUT", "configured input is not readable", path
+            warnings.append(
+                _warning(
+                    path,
+                    "UNREADABLE_INPUT",
+                    "configured input is not readable",
+                    "GDD entities from this file are excluded from coverage and "
+                    "findings.",
+                    "Restore file readability or remove it from discovery config, "
+                    "then rerun the local scan.",
+                )
             )
+        else:
+            readable_gdd.append(relative_path)
+    for relative_path in source_paths:
+        path = root / relative_path
+        if not path.is_file() or not path.stat().st_mode & 0o444:
+            warnings.append(
+                _warning(
+                    path,
+                    "UNREADABLE_INPUT",
+                    "configured input is not readable",
+                    "Implementation entities from this file are excluded; matches "
+                    "and orphan findings may be incomplete.",
+                    "Restore file readability or remove it from discovery config, "
+                    "then rerun the local scan.",
+                )
+            )
+        else:
+            readable_sources.append(relative_path)
+    return tuple(readable_gdd), tuple(readable_sources), tuple(warnings)
 
 
 def _parse_gdd_sources(
     root: Path, paths: tuple[Path, ...]
-) -> tuple[tuple[TrackedEntity, ...], tuple[CandidateEntity, ...]]:
-    parsed = tuple(_parse_gdd(root, path) for path in paths)
+) -> tuple[
+    tuple[TrackedEntity, ...], tuple[CandidateEntity, ...], tuple[ScanWarning, ...]
+]:
+    parsed: list[tuple[list[TrackedEntity], list[CandidateEntity]]] = []
+    warnings: list[ScanWarning] = []
+    for path in paths:
+        try:
+            parsed.append(_parse_gdd(root, path))
+        except ScanFailure as error:
+            if error.code != "UNREADABLE_INPUT":
+                raise
+            warnings.append(
+                _warning(
+                    error.path or root / path,
+                    error.code,
+                    error.message,
+                    "GDD entities from this file are excluded from coverage and "
+                    "findings.",
+                    "Restore UTF-8 readability, then rerun the local scan.",
+                )
+            )
     return (
         tuple(entity for entities, _ in parsed for entity in entities),
         tuple(candidate for _, candidates in parsed for candidate in candidates),
+        tuple(warnings),
     )
 
 
@@ -294,6 +388,7 @@ def _parse_gdd(
 
 
 def _findings(
+    root: Path,
     tracked: tuple[TrackedEntity, ...],
     code: tuple[CodeEntity, ...],
     by_name: dict[str, tuple[CodeEntity, ...]],
@@ -302,7 +397,7 @@ def _findings(
     findings: list[Finding] = []
     consumed: set[str] = set()
     for entity in tracked:
-        finding = _find_entity(entity, code, by_name, mappings, consumed)
+        finding = _find_entity(root, entity, code, by_name, mappings, consumed)
         findings.append(finding)
         if finding.code_entity and finding.status in {
             "MATCHED",
@@ -327,13 +422,14 @@ def _findings(
                     status="ORPHANED",
                     tracked_entity=None,
                     code_entity=code_entity,
-                    evidence=_evidence(None, code_entity, code),
+                    evidence=_evidence(root, None, code_entity, code),
                 )
             )
     return tuple(findings)
 
 
 def _find_entity(
+    root: Path,
     entity: TrackedEntity,
     code: tuple[CodeEntity, ...],
     by_name: dict[str, tuple[CodeEntity, ...]],
@@ -353,7 +449,7 @@ def _find_entity(
             tracked_entity=entity,
             code_entity=exact_entities[0] if exact_entities else None,
             evidence=_evidence(
-                entity, exact_entities[0] if exact_entities else None, code
+                root, entity, exact_entities[0] if exact_entities else None, code
             ),
         )
     if exact_entities:
@@ -362,7 +458,7 @@ def _find_entity(
             status="MATCHED",
             tracked_entity=entity,
             code_entity=code_entity,
-            evidence=_evidence(entity, code_entity, code),
+            evidence=_evidence(root, entity, code_entity, code),
         )
 
     gdd_tokens = _name_tokens(entity.name)
@@ -386,14 +482,14 @@ def _find_entity(
                 status="RENAMED?",
                 tracked_entity=entity,
                 code_entity=code_entity,
-                evidence=_evidence(entity, code_entity, code),
+                evidence=_evidence(root, entity, code_entity, code),
             )
 
     return Finding(
         status="MISSING",
         tracked_entity=entity,
         code_entity=None,
-        evidence=_evidence(entity, None, code),
+        evidence=_evidence(root, entity, None, code),
     )
 
 
@@ -427,6 +523,7 @@ def _prioritize_entity_kind(
 
 
 def _evidence(
+    root: Path,
     tracked: TrackedEntity | None,
     code_entity: CodeEntity | None,
     code: tuple[CodeEntity, ...],
@@ -438,7 +535,23 @@ def _evidence(
         code_line=code_entity.line if code_entity else None,
         code_symbol_path=code_entity.symbol_path if code_entity else None,
         containment_path=_containment_path(code_entity, code),
+        gdd_excerpt=_read_excerpt(root, tracked.path, tracked.line)
+        if tracked
+        else None,
+        code_excerpt=_read_excerpt(root, code_entity.path, code_entity.line)
+        if code_entity
+        else None,
     )
+
+
+def _read_excerpt(root: Path, relative_path: str, line: int) -> str | None:
+    try:
+        lines = (root / relative_path).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if 1 <= line <= len(lines):
+        return lines[line - 1].strip()
+    return None
 
 
 def _containment_path(
@@ -653,35 +766,52 @@ def _write_artifacts(root: Path, result: ScanResult) -> None:
     (root / "drift.json").write_text(
         json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    coverage = (
-        "N/A"
-        if result.summary.coverage_percent is None
-        else f"{result.summary.coverage_percent:.0f}%"
-    )
+    if result.summary.coverage_percent is None:
+        coverage = "N/A"
+    else:
+        coverage = f"{result.summary.coverage_percent:.0f}%"
+    if result.state == "PARTIAL":
+        coverage += "; qualified by partial scan warnings"
     lines = [
         "# Drift report",
         "",
+        f"State: {result.state}",
         f"Coverage: {result.summary.matched}/{result.summary.total} ({coverage})",
         "",
-        "## Findings",
-        "",
     ]
+    priority = tuple(
+        finding
+        for finding in result.findings
+        if finding.status in {"MISSING", "RENAMED?", "ORPHANED"}
+    )
+    if priority:
+        lines.extend(["## Priority findings", ""])
+        for finding in priority:
+            lines.append(f"- {finding.status}: {_finding_label(finding)}")
+        lines.append("")
+    lines.extend(["## Findings", ""])
     for finding in result.findings:
-        if finding.tracked_entity:
-            label = finding.tracked_entity.name
-            evidence = f"{finding.tracked_entity.path}:{finding.tracked_entity.line}"
-        elif finding.code_entity:
-            label = finding.code_entity.name
-            evidence = f"code {finding.code_entity.path}:{finding.code_entity.line}"
-        else:
-            label = "Unknown"
-            evidence = "no evidence"
-        code_evidence = (
-            f"; code {finding.code_entity.path}:{finding.code_entity.line}"
-            if finding.code_entity
-            else ""
-        )
-        lines.append(f"- {finding.status}: {label} ({evidence}{code_evidence})")
+        lines.append(f"- {finding.status}: {_finding_label(finding)}")
+        if finding.evidence:
+            evidence = finding.evidence
+            if evidence.gdd_path:
+                lines.append(
+                    f"  - GDD evidence: {evidence.gdd_path}:{evidence.gdd_line}"
+                )
+            if evidence.code_path:
+                lines.append(
+                    f"  - Code evidence: {evidence.code_path}:{evidence.code_line}"
+                )
+            if evidence.code_symbol_path:
+                lines.append(f"  - Symbol: `{evidence.code_symbol_path}`")
+            if evidence.containment_path:
+                lines.append(
+                    "  - Containment: " + " -> ".join(evidence.containment_path)
+                )
+            if evidence.gdd_excerpt:
+                lines.append(f"  - GDD excerpt: `{evidence.gdd_excerpt}`")
+            if evidence.code_excerpt:
+                lines.append(f"  - Code excerpt: `{evidence.code_excerpt}`")
     if result.candidates:
         lines.extend(["", "## Candidates", ""])
         for candidate in result.candidates:
@@ -689,4 +819,44 @@ def _write_artifacts(root: Path, result: ScanResult) -> None:
                 f"- CANDIDATE: {candidate.name} "
                 f"({candidate.path}:{candidate.line}) — {candidate.guidance}"
             )
+    if result.warnings:
+        lines.extend(["", "## Warnings", ""])
+        for warning in result.warnings:
+            lines.extend(
+                [
+                    f"- {warning.path} [{warning.code}]: {warning.reason}",
+                    f"  - Affected scope: {warning.impact}",
+                    f"  - Next action: {warning.next_action}",
+                ]
+            )
+    lines.extend(["", "## Next actions", ""])
+    if result.warnings:
+        lines.append("- Resolve every warning, then rerun the local scan.")
+    if any(finding.status == "MISSING" for finding in result.findings):
+        lines.append("- Implement or remove each missing tracked entity.")
+    if any(finding.status == "RENAMED?" for finding in result.findings):
+        lines.append(
+            "- Confirm rename candidates through accepted_mappings in drift.toml."
+        )
+    if any(finding.status == "ORPHANED" for finding in result.findings):
+        lines.append("- Document, track, or remove each orphaned top-level symbol.")
+    if not result.warnings and not priority:
+        lines.append(
+            "- Keep the scan checkpoint in version control with the project artifacts."
+        )
     (root / "drift_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _finding_label(finding: Finding) -> str:
+    if finding.tracked_entity:
+        label = finding.tracked_entity.name
+        evidence = f"{finding.tracked_entity.path}:{finding.tracked_entity.line}"
+        if finding.code_entity:
+            evidence += f"; code {finding.code_entity.path}:{finding.code_entity.line}"
+        return f"{label} ({evidence})"
+    if finding.code_entity:
+        return (
+            f"{finding.code_entity.name} "
+            f"(code {finding.code_entity.path}:{finding.code_entity.line})"
+        )
+    return "Unknown (no evidence)"

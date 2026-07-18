@@ -41,7 +41,7 @@ def test_scan_returns_exact_normalized_matches_and_writes_root_artifacts(
     assert result.duration_ms >= 0
     assert (root / "drift_report.md").is_file()
     artifact = json.loads((root / "drift.json").read_text())
-    assert artifact["schema_version"] == "1.1"
+    assert artifact["schema_version"] == "1.2"
     assert set(artifact) == {
         "schema_version",
         "scan",
@@ -50,13 +50,21 @@ def test_scan_returns_exact_normalized_matches_and_writes_root_artifacts(
         "findings",
         "candidates",
         "relationships",
+        "state",
+        "warnings",
         "summary",
     }
     assert artifact["findings"][0]["status"] == "MATCHED"
     assert artifact["summary"] == {
         "coverage_percent": 100.0,
+        "coverage_qualified": False,
         "matched": 1,
+        "next_actions": ["Review drift_report.md for full scan evidence."],
+        "priority_findings": [],
+        "report": "drift_report.md",
+        "state": "COMPLETE",
         "total": 1,
+        "warning_count": 0,
     }
     report = (root / "drift_report.md").read_text()
     assert "Coverage: 1/1 (100%)" in report
@@ -126,32 +134,15 @@ def test_cli_serializes_the_same_success_result(tmp_path: Path) -> None:
     assert json.loads(completed.stdout)["summary"]["coverage_percent"] == 100.0
 
 
-@pytest.mark.parametrize(
-    ("root_factory", "scan_config", "code"),
-    [
-        (
-            lambda tmp_path: tmp_path / "not-a-project",
-            default_scan_config(),
-            "INVALID_PROJECT",
-        ),
-        (
-            copy_fixture,
-            ScanConfig(
-                (Path("does-not-exist.md"),), (Path("scripts/player_controller.gd"),)
-            ),
-            "UNREADABLE_INPUT",
-        ),
-    ],
-)
-def test_invalid_inputs_have_typed_failures_and_write_no_artifacts(
-    tmp_path: Path, root_factory: object, scan_config: ScanConfig, code: str
+def test_invalid_project_has_typed_failure_and_writes_no_artifacts(
+    tmp_path: Path,
 ) -> None:
-    root = root_factory(tmp_path)  # type: ignore[operator]
+    root = tmp_path / "not-a-project"
 
     with pytest.raises(ScanFailure) as failure:
-        scan(root, scan_config)
+        scan(root, default_scan_config())
 
-    assert failure.value.code == code
+    assert failure.value.code == "INVALID_PROJECT"
     assert not (root / "drift.json").exists()
     assert not (root / "drift_report.md").exists()
 
@@ -181,16 +172,55 @@ def test_cli_invalid_project_is_structured_json_and_non_zero(tmp_path: Path) -> 
     assert not (root / "drift.json").exists()
 
 
-def test_unreadable_configured_input_is_rejected(tmp_path: Path) -> None:
+def test_unreadable_configured_input_produces_partial_artifacts(tmp_path: Path) -> None:
     root = copy_fixture(tmp_path)
     source = root / "scripts/player_controller.gd"
     source.chmod(0o000)
 
-    with pytest.raises(ScanFailure, match="not readable") as failure:
-        scan(root, default_scan_config())
+    result = scan(root, default_scan_config())
 
-    assert failure.value.code == "UNREADABLE_INPUT"
-    assert not (root / "drift.json").exists()
+    assert result.state == "PARTIAL"
+    assert len(result.warnings) == 1
+    assert result.warnings[0].code == "UNREADABLE_INPUT"
+    assert json.loads((root / "drift.json").read_text())["state"] == "PARTIAL"
+    assert "Affected scope:" in (root / "drift_report.md").read_text()
+
+
+def test_missing_configured_input_produces_partial_na_artifacts(tmp_path: Path) -> None:
+    root = copy_fixture(tmp_path)
+
+    result = scan(
+        root,
+        ScanConfig(
+            (Path("does-not-exist.md"),),
+            (Path("scripts/player_controller.gd"),),
+        ),
+    )
+
+    assert result.state == "PARTIAL"
+    assert result.summary.coverage_percent is None
+    assert result.warnings[0].path.endswith("does-not-exist.md")
+    assert "Coverage: 0/0 (N/A; qualified" in (root / "drift_report.md").read_text()
+
+
+def test_unparsed_source_produces_partial_warning_and_keeps_readable_results(
+    tmp_path: Path,
+) -> None:
+    root = copy_fixture(tmp_path)
+    (root / "scripts" / "broken.gd").write_text("extends Node\nfunc broken(:\n")
+
+    result = scan(
+        root,
+        ScanConfig(
+            (Path("GDD.md"),),
+            (Path("scripts/player_controller.gd"), Path("scripts/broken.gd")),
+        ),
+    )
+
+    assert result.state == "PARTIAL"
+    assert [warning.code for warning in result.warnings] == ["UNSUPPORTED_SOURCE"]
+    assert result.findings[0].status == "MATCHED"
+    assert "scripts/broken.gd" in (root / "drift_report.md").read_text()
 
 
 def test_unsupported_configured_input_is_rejected(tmp_path: Path) -> None:
