@@ -2,51 +2,101 @@
 
 ## Project Structure & Module Organization
 
-This repository is currently a minimal scaffold with no application source, test suite, or build configuration committed yet. Keep new work organized from the start:
+This repository is the **GDD Drift Detector** monorepo: a local GDD-to-GDScript
+drift engine, a Codex plugin host adapter, and a linked showcase fixture.
 
-- Put application code in `src/`.
-- Put automated tests in `tests/` or alongside modules using the selected framework's convention.
-- Put static assets in `assets/` and developer documentation in `docs/`.
-- Keep generated files, local caches, dependency directories, and secrets out of version control.
+- `src/gdd_drift_detector/` — detector package (`scan()`, CLI via
+  `python -m gdd_drift_detector`).
+- `plugins/gdd-drift-detector/` — Codex plugin (skills `setup-gdd` /
+  `detect-drift`, launcher under `scripts/`).
+- `tests/` — pytest suite for detector, plugin packaging, acceptance, and
+  showcase contracts.
+- `showcase/godot-deckbuilder/` — frozen Godot 4.6.3 fixture (not a living game
+  product).
+- `showcase/site/` — Vite/React showcase; public assets include `drift.json`,
+  Web export under `public/game/`, and the standalone ZIP under
+  `public/downloads/`.
+- `docs/` — product/spec docs; `docs/adr/` for decisions; `docs/agents/` for
+  agent ops.
+- `release/` — version pins and release verification.
+- `scripts/` — packaging helpers (for example
+  `build_standalone_plugin_zip.py`).
+- Root `CONTEXT.md` — product ubiquitous language; prefer it over inventing
+  synonyms.
+- Keep generated caches, secrets, and local dependency directories out of version
+  control unless an artifact is intentionally committed (Showcase Web export,
+  fixture reports, downloadable ZIP).
 
-When introducing a toolchain, add its manifest and lockfile at the repository root, and document any non-obvious directories here.
+Toolchain manifests live at the repo root (`pyproject.toml`, `uv.lock`,
+`package.json` for showcase scripts, `marketplace.json` for Codex).
 
 ## Build, Test, and Development Commands
 
-No build or test commands are configured yet. When adding a runtime or framework, provide predictable root-level commands and document them in the project README. For example, a JavaScript project should normally expose:
-
 ```sh
-npm run dev    # start local development
-npm test       # run automated tests
-npm run lint   # check formatting and static rules
-npm run build  # create a production build
+uv sync
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+uv run python -m gdd_drift_detector --project-root /path/to/godot-project --json
+
+npm run showcase:dev
+npm run showcase:build
+npm run showcase:lint
+npm run showcase:test
+
+python3 scripts/build_standalone_plugin_zip.py
 ```
 
-Run the relevant checks before requesting review. Do not commit generated output unless the project explicitly requires it.
+Release checklist: [`release/README.md`](release/README.md). Human contributor
+onboarding: [`CONTRIBUTING.md`](CONTRIBUTING.md). End-user install: root
+[`README.md`](README.md).
+
+Scans are read-only for GDD, sources, and `drift.toml`; they write only
+`drift.json` and `drift_report.md` under the target project root.
 
 ## Coding Style & Naming Conventions
 
-Follow the formatter and linter adopted by the project; do not hand-format around their output. Use 2 spaces for JSON, YAML, and Markdown indentation unless the chosen language toolchain specifies otherwise. Prefer descriptive, lowercase file names such as `user-profile.ts`; use the ecosystem's standard naming for classes, functions, and constants. Keep modules focused and avoid unrelated refactors in feature changes.
+Follow the project formatters and linters (Ruff for Python; showcase ESLint via
+`npm run showcase:lint`). Do not hand-format around their output. Use 2 spaces
+for JSON, YAML, and Markdown unless a toolchain specifies otherwise. Prefer
+descriptive, lowercase / kebab-case file names for docs and frontend modules;
+follow Python package conventions under `src/`. Keep modules focused; avoid
+unrelated refactors in feature changes. Align user-facing and domain wording
+with [`CONTEXT.md`](CONTEXT.md).
 
 ## Testing Guidelines
 
-Add or update tests for behavior changes, including error cases. Name tests after the behavior they verify, for example `user-profile.test.ts` or `test_user_profile.py`. Keep tests deterministic: avoid live network calls, clock-dependent assertions, and undeclared local configuration. Run the full test suite and lint checks before opening a pull request.
+Add or update tests for behavior changes, including error and partial-scan
+cases. Name tests after the behavior they verify (for example
+`test_plugin_package.py`). Keep tests deterministic: no live network in detector
+scans, no undeclared local config. Run the relevant suite and lint checks before
+opening a pull request. Headless Godot is not an MVP release gate; see
+`docs/adr/0037-showcase-validation-without-headless.md`.
 
 ## Commit & Pull Request Guidelines
 
-Git history is not available in this scaffold, so use concise imperative commit subjects, optionally scoped: `feat: add profile endpoint` or `fix: handle empty token`. Keep commits small and independently understandable.
+Use concise imperative commit subjects, optionally scoped:
+`feat: add accepted mappings` or `fix: handle unreadable gdd`. Keep commits
+small and independently understandable.
 
-Pull requests should explain the change and verification performed, link the relevant issue when one exists, and include screenshots or recordings for visible UI changes. Call out configuration, migration, security, or deployment implications explicitly.
+Pull requests should explain the change and verification performed, link the
+relevant issue when one exists, and include screenshots for visible showcase UI
+changes. Call out packaging, release manifest, security, or deployment
+implications explicitly. Rebuild and commit the standalone ZIP when plugin or
+detector packaging changes affect the downloadable artifact.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues live in this repo's GitHub Issues (via `gh`). See `docs/agents/issue-tracker.md`.
+Issues live in this repo's GitHub Issues (via `gh`). See
+`docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default triage vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+Default triage vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

@@ -1,53 +1,120 @@
 # GDD Drift Detector
 
-Offline, local detector for drift between GDD entity markers and GDScript
-implementation symbols. Current MVP ships four pieces: typed scan results,
-evidence-rich Markdown/JSON reports, a Codex plugin adapter, and a linked
-showcase backed by a traceable Godot deck-builder fixture.
+Local, offline drift detection between your **game design document (GDD)** and
+**Godot 4 / GDScript** implementation — delivered as a **Codex plugin**.
 
-## Quick start
+Scans run on your machine. After a one-time `uv` provision, the detector does not
+upload project files or call the network.
+
+## Who this is for
+
+- **Godot 4** projects whose gameplay code is written in **GDScript**
+- Developers who keep (or want) a marked Markdown GDD next to the project
+- Users of **OpenAI Codex** who want a `/detect-drift` workflow in-session
+
+This is **not** a Godot editor plugin. Cursor and MCP hosts are future adapters,
+not the current install path.
+
+---
+
+## For game developers
+
+### Prerequisites
+
+- [OpenAI Codex](https://openai.com/codex/) with plugin support
+- [`uv`](https://docs.astral.sh/uv/) on your `PATH` (used on first run to install
+  pinned detector dependencies)
+- A Godot 4 project with GDScript sources
+
+### Install the Codex plugin
+
+**Option A — Standalone ZIP (recommended)**
+
+1. Download
+   [`gdd-drift-detector.zip`](showcase/site/public/downloads/gdd-drift-detector.zip)
+   (also linked from the [showcase](#try-the-showcase) install section).
+2. Extract the ZIP somewhere durable (for example `~/codex-plugins/gdd-drift-detector`).
+3. From the extracted directory (the folder that contains `marketplace.json`), run:
 
 ```sh
-uv sync
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy
-uv run python -m gdd_drift_detector --project-root /path/to/godot-project --json
-npm run showcase:dev    # start linked showcase
-npm run showcase:build  # build linked showcase
-npm run showcase:lint
-npm run showcase:test
+codex plugin marketplace add ./marketplace.json
 ```
 
-The Python package needs Python 3.10+ and uses `uv.lock` for reproducible
-development dependencies. The scan is read-only for inputs and never uses the
-network. It writes only the generated `drift.json` and `drift_report.md`.
+1. Confirm the plugin appears in Codex. First drift scan may take a moment while
+   `uv` provisions a cached environment from the embedded lockfile.
 
-## Detector capability
+**Option B — From this repository**
 
-Conventional scans discover `GDD.md`, `design.md`, `docs/gdd/**/*.md`,
-`docs/design/**/*.md`, and GDScript inputs. Use repeated `--gdd` and `--source`
-arguments for explicit inputs. The programmatic seam is
-`scan(project_root, ScanConfig(...))`.
+Clone the repo and add the root marketplace manifest:
 
-Findings use these statuses:
+```sh
+git clone <this-repo-url>
+cd codex-hackathon
+codex plugin marketplace add ./marketplace.json
+```
 
-- `MATCHED`: tracked entity has an exact implementation match.
-- `RENAMED?`: one unique fuzzy candidate exists; review required.
-- `MISSING`: tracked entity has no implementation match.
-- `PLANNED`: implementation symbol has no tracked entity yet.
-- `ORPHANED`: top-level implementation is not represented by a tracked entity.
+`GDD_DETECTOR_ROOT` is an optional fallback if you run the launcher outside the
+standalone package layout; most users do not need it.
 
-Reports include source/GDD paths, line anchors, symbols, excerpts, containment
-relationships, summary coverage, priority findings, and next actions. A scan is
-`COMPLETE` when all configured inputs parse; it is `PARTIAL` when an input is
-unreadable or unparseable. `N/A` coverage is used when no comparable tracked
-entities exist; partial-scan artifacts mark that result as qualified by explicit
-warnings rather than implying complete coverage.
+### Mark your GDD
 
-Optional version-controlled `drift.toml` supports project-local discovery and
-accepted mappings. It is read but never modified:
+Only concepts with an **entity marker** count toward coverage. Unmarked prose
+may appear as advisory candidates only.
+
+Put design docs on a discovery path (or configure `drift.toml` later):
+
+- `GDD.md` or `design.md` at the project root
+- `docs/gdd/**/*.md` or `docs/design/**/*.md`
+
+Marker syntax:
+
+```markdown
+## Combat Loop [entity: system]
+
+Core draw → spend energy → resolve cards.
+
+## Multiplayer Lobby [entity: system] [planned]
+
+Intentionally out of scope for the current slice.
+```
+
+- `[entity: type]` — tracked (affects coverage)
+- `[planned]` — tracked but excluded from the coverage denominator
+
+If you do not have a GDD yet, use the **`setup-gdd`** skill in Codex (bring an
+existing doc, or grill a draft in chat). The skill does not silently write files;
+you save the draft yourself.
+
+### Run a drift scan
+
+In Codex, with your Godot project as the working context:
+
+1. Prefer `$gdd-drift-detector:setup-gdd` once if the project is untracked (no
+   marked entities yet).
+2. Run `$gdd-drift-detector:detect-drift` (shorthand: `/detect-drift`).
+
+The scan is read-only for GDD, GDScript, and `drift.toml`. It writes only:
+
+```text
+<project-root>/drift_report.md
+<project-root>/drift.json
+```
+
+### Read the results
+
+| Status | Meaning |
+|--------|---------|
+| `MATCHED` | Tracked entity has an exact (or accepted) implementation match |
+| `MISSING` | Tracked entity has no implementation match |
+| `RENAMED?` | One unique fuzzy candidate — review before treating as matched |
+| `ORPHANED` | Top-level script/class not represented by a tracked entity |
+| `PLANNED` | Marked `[planned]` — outside the current coverage slice |
+
+Reports include paths, line anchors, short excerpts, containment context,
+coverage summary, priority findings, and next actions.
+
+**Accepted renames** live in optional project-local `drift.toml` (read-only for
+the detector — edit it yourself):
 
 ```toml
 [discovery]
@@ -59,40 +126,28 @@ exclude = ["game/generated/**"]
 "Design Name" = "implementation_name"
 ```
 
-`[accepted_mappings]` is the accepted latest-decision escape hatch: it maps a
-tracked GDD name to its intentional implementation symbol before fuzzy matching.
-The detector reads `drift.toml` and does not modify it.
+### CLI without Codex (optional)
 
-## Detailed usage
-
-Scan a Godot project and write JSON plus Markdown artifacts:
+From a checkout of this repo (or after `uv sync` against the package):
 
 ```sh
+uv sync
 uv run python -m gdd_drift_detector \
   --project-root /path/to/godot-project \
   --json
 ```
 
-Use explicit inputs when conventional discovery paths do not fit:
+Explicit inputs when defaults do not fit:
 
 ```sh
 uv run python -m gdd_drift_detector \
   --project-root /path/to/godot-project \
   --gdd design/gameplay.md \
-  --gdd docs/gdd/combat.md \
   --source game/player.gd \
-  --source game/combat.gd \
   --json
 ```
 
-Paths are relative to the project root. Each scan writes:
-
-```text
-/path/to/godot-project/drift.json
-/path/to/godot-project/drift_report.md
-```
-
-The Python API remains available for integration:
+Python API:
 
 ```python
 from pathlib import Path
@@ -106,84 +161,59 @@ result = scan(
         source_paths=(Path("game/player.gd"),),
     ),
 )
-
-print(result.state)
-print(result.summary.coverage_percent)
+print(result.state, result.summary.coverage_percent)
 ```
 
-## Codex plugin
+### Troubleshooting
 
-The local Codex plugin is in `plugins/gdd-drift-detector`. It is a **host
-adapter** for Codex (not a Godot editor plugin). The launcher provisions a
-versioned cache with **`uv`**, installs from the embedded lockfile, and runs the
-detector without network access after dependencies are available.
+| Problem | What to try |
+|---------|-------------|
+| First run fails / missing deps | Install [`uv`](https://docs.astral.sh/uv/) and retry; provisioning needs network once |
+| Coverage `N/A` or “untracked” | Add `[entity: …]` markers, or run `setup-gdd` then save a GDD on a discovery path |
+| Wrong files scanned | Pass `--gdd` / `--source`, or set `[discovery]` in `drift.toml` |
+| Want rename to count as matched | Add an entry under `[accepted_mappings]` in `drift.toml` |
 
-**Install handoff** uses the **Standalone plugin package** at
-`showcase/site/public/downloads/gdd-drift-detector.zip`. That ZIP embeds the
-plugin, detector sources, `pyproject.toml`, and `uv.lock`, so users do not need
-a monorepo checkout. `GDD_DETECTOR_ROOT` remains an optional fallback.
+---
 
-Rebuild the downloadable ZIP after plugin or detector packaging changes:
+## Try the showcase
+
+This repo ships a frozen Godot 4.6.3 deck-builder fixture and a linked React
+site that walks through real drift findings beside a playable Web export.
+
+```sh
+npm run showcase:dev
+```
+
+Artifacts live under `showcase/site/public/` (`drift.json`, `game/`, downloads).
+The fixture project is `showcase/godot-deckbuilder/`.
+
+---
+
+## For contributors
+
+High-level layout:
+
+| Path | Role |
+|------|------|
+| `src/gdd_drift_detector/` | Shared detector engine (CLI + `scan()`) |
+| `plugins/gdd-drift-detector/` | Codex host adapter (skills + launcher) |
+| `showcase/` | Demo site + Godot fixture |
+| `tests/` | Automated tests |
+| `docs/adr/` | Architecture decision records |
+| `release/` | Version pins and release verification |
+
+Development setup, checks, ZIP rebuild, and PR expectations are in
+[**CONTRIBUTING.md**](CONTRIBUTING.md). Product vocabulary lives in
+[`CONTEXT.md`](CONTEXT.md).
+
+Rebuild the downloadable standalone plugin package after packaging changes:
 
 ```sh
 python3 scripts/build_standalone_plugin_zip.py
 ```
 
-Repository marketplace metadata is in `marketplace.json`. Skills:
+---
 
-- `setup-gdd` — bring-or-grill GDD convention setup (chat-first; no silent writes)
-- `detect-drift` — read-only local drift scan
+## License
 
-Run the adapter from this repository or an extracted standalone package:
-
-```sh
-python3 plugins/gdd-drift-detector/scripts/detect-drift.py \
-  --project-root /path/to/godot-project
-```
-
-The documented Codex surfaces are `$gdd-drift-detector:setup-gdd` and
-`$gdd-drift-detector:detect-drift` (`/detect-drift` is the scan shorthand).
-Cursor and MCP remain future host adapters, not MVP ship targets.
-
-## Showcase and fixture
-
-`showcase/godot-deckbuilder` is the deterministic Godot 4.6.3 fixture. Its GDD,
-scripts, generated `drift.json`, and `drift_report.md` deliberately exercise all
-required finding statuses, including `CANDIDATE` and `PLANNED`. The React/Vite
-showcase loads that report and exposes
-finding selection, evidence anchors, filters, theme switching, reduced-motion
-support, and plugin installation metadata:
-
-```sh
-npm run showcase:dev
-npm run showcase:build
-npm run showcase:lint
-npm run showcase:test
-```
-
-The site is linked to `showcase/site/public/drift.json`; regenerate it only when
-the fixture report changes. The embedded Godot Web build lives at
-`showcase/site/public/game/index.html` (Showcase Web export).
-
-## Release verification
-
-Run the commands in [`release/README.md`](release/README.md). The release
-manifest pins package, artifact, plugin, fixture, and showcase paths. Headless
-Godot is not an MVP gate (see `docs/adr/0037-showcase-validation-without-headless.md`);
-WSL/CI may skip the optional headless test. The Showcase Web export is present at
-`showcase/site/public/game/index.html`.
-
-Known boundary: the downloadable ZIP is the **Standalone plugin package**
-(plugin + detector + lock data). First-run provisioning requires `uv`; local
-scans stay offline afterward. See ADR 0038.
-
-## Future MVP completion plan
-
-Issues #4–#6 are done. Remaining closure (grilled 2026-07-18); tracked in #13:
-
-1. **Close #7** — frozen showcase sample: pin `4.6.3`, committed Web export, playable iframe. No headless requirement.
-2. **Close #8** — ship the **Standalone plugin package** (plugin + detector in one ZIP; first run may use `uv` for pinned deps).
-3. **#9 / epic #1** — add the bring-or-grill **Setup skill**; rerun WSL acceptance (`pytest`, ruff, mypy, showcase); confirm version alignment; publish when approved.
-4. Docs may note Cursor/MCP as future **host adapters**; they are not MVP ship targets.
-
-Out of MVP: headless/CI Godot, thawing the showcase game, browser a11y matrix, auto-writing GDD files from detect-drift.
+Licensed under the [Apache License 2.0](LICENSE).
