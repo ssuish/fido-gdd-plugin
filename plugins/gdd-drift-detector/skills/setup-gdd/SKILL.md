@@ -24,8 +24,11 @@ Offer exactly one of two paths after asking which applies.
 3. Explain authoritative tracking: only concepts marked with an **entity marker**
    affect coverage. Unmarked prose may surface as advisory candidates only.
 4. Show the marker syntax and ask them to adopt it deliberately:
-   - Tracked: `## Combat Loop [entity: system]`
-   - Planned (excluded from coverage): `## Multiplayer [entity: system] [planned]`
+   - Tracked: `[entity: system] Combat Loop`
+   - Planned (excluded from coverage): `[entity: system] [planned] Multiplayer`
+   - In a heading: `## [entity: system] Combat Loop`
+   Markers are prefix-only: name follows `[entity: type]`. Heading-suffix forms
+   with name before marker are not tracked.
 5. Confirm whether they already have a Godot 4 + GDScript project. If yes, note
    that `/detect-drift` (or `$gdd-drift-detector:detect-drift`) can scan after
    they save the marked GDD themselves.
@@ -46,13 +49,13 @@ Offer exactly one of two paths after asking which applies.
    ```markdown
    # Game Title
 
-   ## Core Loop [entity: system]
+   ## [entity: system] Core Loop
    ...
 
-   ## Player Character [entity: character]
+   ## [entity: character] Player Character
    ...
 
-   ## Seasonal Events [entity: system] [planned]
+   ## [entity: system] [planned] Seasonal Events
    ...
    ```
 
@@ -68,6 +71,23 @@ Offer exactly one of two paths after asking which applies.
 - `drift.toml` is optional project config for accepted mappings and discovery
   overrides; describe it, do not create it unless the user explicitly asks you
   to draft text they will paste themselves.
+- If scan later reports `EMPTY_MARKER_NAME`, explain it as a Scan advisory:
+  name must follow marker. Advisory does not make scan `PARTIAL`.
+- When project has no tracked entities, explain Coverage `N/A`: not marked yet.
+- Ownership guidance: `MISSING` means implement or unmark/remove; `RENAMED?`
+  means add `accepted_mappings` or reject; `ORPHANED` means track, exclude in
+  `drift.toml`, or remove; `PLANNED` stays outside current coverage slice.
+- If user needs config, offer this paste-only starter; never write it:
+
+  ```toml
+  [discovery]
+  gdd = ["GDD.md"]
+  sources = ["**/*.gd"]
+  exclude = [".godot/**"]
+
+  [accepted_mappings]
+  # "GDD Name" = "implementation_name"
+  ```
 - When setup is done, hand off explicitly: next step is the separate
   `detect-drift` skill / `/detect-drift` command after they save their GDD.
 

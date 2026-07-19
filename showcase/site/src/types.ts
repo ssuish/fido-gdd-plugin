@@ -27,6 +27,13 @@ export type Report = {
     priority_findings: { status: string; name: string }[];
   };
   warnings: { path: string; reason: string; impact: string }[];
+  advisories: {
+    path: string;
+    code: string;
+    reason: string;
+    impact: string;
+    next_action: string;
+  }[];
 };
 
 export const statusCopy: Record<string, string> = {

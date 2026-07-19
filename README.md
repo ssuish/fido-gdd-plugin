@@ -11,6 +11,13 @@ network.
 Technical package and plugin id remain `gdd-drift-detector` (paths, ZIP name,
 `$gdd-drift-detector:…` skill prefixes).
 
+## Prerequisites
+
+- [OpenAI Codex](https://openai.com/codex/) with plugin support
+- [`uv`](https://docs.astral.sh/uv/) on your `PATH` (used on first run to install
+  pinned detector dependencies)
+- A Godot 4 project with GDScript sources
+
 ## Who this is for
 
 - Game developers who keep (or want) a marked Markdown GDD next to the project
@@ -23,13 +30,6 @@ not the current install path.
 ---
 
 ## For game developers
-
-### Prerequisites
-
-- [OpenAI Codex](https://openai.com/codex/) with plugin support
-- [`uv`](https://docs.astral.sh/uv/) on your `PATH` (used on first run to install
-  pinned detector dependencies)
-- A Godot 4 project with GDScript sources
 
 ### Install the Codex plugin
 
@@ -90,17 +90,20 @@ Put design docs on a discovery path (or configure `drift.toml` later):
 Marker syntax:
 
 ```markdown
-## Combat Loop [entity: system]
+[entity: system] Combat Loop
 
 Core draw → spend energy → resolve cards.
 
-## Multiplayer Lobby [entity: system] [planned]
+[entity: system] [planned] Multiplayer Lobby
 
 Intentionally out of scope for the current slice.
 ```
 
-- `[entity: type]` — tracked (affects coverage)
+- `[entity: type] Name` — tracked; name must follow marker (affects coverage)
 - `[planned]` — tracked but excluded from the coverage denominator
+
+Markers are prefix-only in this MVP. A marker placed after a heading name has
+no tracked name and produces a Scan advisory; it does not affect coverage.
 
 If you do not have a GDD yet, use the **`setup-gdd`** skill in Codex (bring an
 existing doc, or grill a draft in chat). The skill does not silently write files;
@@ -131,6 +134,15 @@ The scan is read-only for GDD, GDScript, and `drift.toml`. It writes only:
 | `ORPHANED` | Top-level script/class not represented by a tracked entity |
 | `PLANNED` | Marked `[planned]` — outside the current coverage slice |
 
+Ownership next actions:
+
+| Status | Owner action |
+|--------|--------------|
+| `MISSING` | Implement or unmark/remove the tracked entity |
+| `RENAMED?` | Add `accepted_mappings` or reject the candidate; mapping required for a match |
+| `ORPHANED` | Track, exclude in `drift.toml`, or remove the implementation symbol |
+| `PLANNED` | Keep outside current coverage slice until ready |
+
 Reports include paths, line anchors, short excerpts, containment context,
 coverage summary, priority findings, and next actions.
 
@@ -147,9 +159,30 @@ exclude = ["game/generated/**"]
 "Design Name" = "implementation_name"
 ```
 
-### CLI without Codex (optional)
+Paste this starter into your project as `drift.toml` only when you need
+discovery overrides or accepted mappings. Fido never creates or edits it:
 
-From a checkout of this repo (or after `uv sync` against the package):
+```toml
+[discovery]
+gdd = ["GDD.md"]
+sources = ["**/*.gd"]
+exclude = [".godot/**"]
+
+[accepted_mappings]
+# "GDD Name" = "implementation_name"
+```
+
+### CLI peer path
+
+Codex is the primary host. For a local CLI peer, use the existing launcher
+from an extracted ZIP:
+
+```sh
+python /absolute/path/to/extracted-fido/plugins/gdd-drift-detector/scripts/detect-drift.py \
+  --project-root /path/to/godot-project --json
+```
+
+From a checkout, use the same launcher or the package module after `uv sync`:
 
 ```sh
 uv sync
@@ -157,6 +190,8 @@ uv run python -m gdd_drift_detector \
   --project-root /path/to/godot-project \
   --json
 ```
+
+No extra helper script or PyPI install is required.
 
 Explicit inputs when defaults do not fit:
 
@@ -190,7 +225,8 @@ print(result.state, result.summary.coverage_percent)
 | Problem | What to try |
 |---------|-------------|
 | First run fails / missing deps | Install [`uv`](https://docs.astral.sh/uv/) and retry; provisioning needs network once |
-| Coverage `N/A` or “untracked” | Add `[entity: …]` markers, or run `setup-gdd` then save a GDD on a discovery path |
+| Coverage `N/A` or “untracked” | Not marked yet; put `[entity: type]` before intended names, or run `setup-gdd` then save a GDD on a discovery path |
+| Empty-marker advisory | Put `[entity: type]` before the intended name; heading-suffix markers are not tracked |
 | Wrong files scanned | Pass `--gdd` / `--source`, or set `[discovery]` in `drift.toml` |
 | Want rename to count as matched | Add an entry under `[accepted_mappings]` in `drift.toml` |
 

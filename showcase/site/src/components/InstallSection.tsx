@@ -75,6 +75,9 @@ export function InstallSection() {
             In Codex, run <code>setup-gdd</code> if the project is untracked, then{" "}
             <code>detect-drift</code> for a local report you can commit beside your work.
           </p>
+          <p>
+            Mark concepts with the marker before the name: <code>[entity: system] Combat Loop</code>.
+          </p>
         </li>
       </ol>
     </section>

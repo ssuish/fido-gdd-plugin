@@ -71,6 +71,8 @@ def test_site_declares_accessible_states_and_responsive_reduced_motion_rules() -
     assert "codex plugin marketplace add /absolute/path/to/extracted-fido" in source
     assert "ChatGPT Work mode or Codex" in source
     assert "INSTALL.md" in source
+    assert "[entity: system] Combat Loop" in source
+    assert "## Combat Loop [entity: system]" not in source
     assert "directly through the Codex app" not in source
     assert "@media (max-width: 767px)" in styles
     assert "prefers-reduced-motion" in styles

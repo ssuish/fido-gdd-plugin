@@ -106,6 +106,10 @@ _Avoid_: zero-coverage project (absence of tracked entities is not the same as z
 A completed drift scan with one or more input files that could not be parsed or inspected, accompanied by explicit warnings and affected-scope information.
 _Avoid_: successful scan (when authoritative input was skipped)
 
+**Scan advisory**:
+Per-line guidance about a recognizable input footgun that does not change tracked entities, coverage, warnings, or scan state. For this slice, an empty Entity marker name is reported when the marker has no name after it; the fix is to use the prefix-only form.
+_Avoid_: ScanWarning, Partial scan, authoritative finding
+
 **Useful finding**:
 A drift result that a target developer can understand, verify against its evidence, and use to decide what to implement, rename, document, or remove.
 _Avoid_: merely detected, accurate (unless measured formally)
@@ -169,7 +173,7 @@ A possible GDD entity inferred from unmarked Markdown structure or prose; it is 
 _Avoid_: tracked entity, finding
 
 **Entity marker**:
-The inline Markdown notation `[entity: type]` that declares a GDD concept as a tracked entity; `[planned]` may be added to exclude it from current coverage.
+The prefix-only inline Markdown notation `[entity: type] Name` that declares a GDD concept as a tracked entity; the name follows the marker, and `[planned]` may be added to exclude it from current coverage.
 _Avoid_: annotation, tag (when referring to the authoritative syntax)
 
 **Drift report**:
