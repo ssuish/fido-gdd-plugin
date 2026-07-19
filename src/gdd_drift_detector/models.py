@@ -128,6 +128,20 @@ class ScanWarning:
 
 
 @dataclass(frozen=True)
+class ScanAdvisory:
+    """A per-line guidance item that does not qualify or alter a scan."""
+
+    path: str
+    code: str
+    reason: str
+    impact: str
+    next_action: str
+
+    def to_dict(self) -> dict[str, str]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class ScanSummary:
     matched: int
     total: int
@@ -148,6 +162,7 @@ class ScanResult:
     relationships: tuple[Relationship, ...]
     state: ScanState
     warnings: tuple[ScanWarning, ...]
+    advisories: tuple[ScanAdvisory, ...]
     summary: ScanSummary
     duration_ms: int
 
@@ -175,13 +190,34 @@ class ScanResult:
         next_actions: list[str] = []
         if self.warnings:
             next_actions.append("Resolve warnings, then rerun the local scan.")
+        if self.advisories:
+            next_actions.append(
+                "Review scan advisories; put [entity: type] before each intended "
+                "name, then rerun the local scan."
+            )
+        if not self.tracked_entities:
+            next_actions.append(
+                "Coverage is N/A: not marked yet; add "
+                "[entity: type] before intended names, then rerun the local scan."
+            )
         if any(finding.status == "MISSING" for finding in self.findings):
-            next_actions.append("Implement or remove missing tracked entities.")
+            next_actions.append(
+                "MISSING ownership: implement or unmark/remove each tracked entity."
+            )
         if any(finding.status == "RENAMED?" for finding in self.findings):
-            next_actions.append("Confirm rename candidates in drift.toml.")
+            next_actions.append(
+                "RENAMED? ownership: add accepted_mappings or reject each candidate; "
+                "do not count it as matched without accepted_mappings."
+            )
         if any(finding.status == "ORPHANED" for finding in self.findings):
             next_actions.append(
-                "Document, track, or remove orphaned top-level symbols."
+                "ORPHANED ownership: track, exclude in drift.toml, or remove each "
+                "top-level symbol."
+            )
+        if any(finding.status == "PLANNED" for finding in self.findings):
+            next_actions.append(
+                "PLANNED ownership: keep entity outside the current coverage slice "
+                "until it is ready."
             )
         if not next_actions:
             next_actions.append("Review drift_report.md for full scan evidence.")
@@ -194,6 +230,7 @@ class ScanResult:
                 "warning_count": len(self.warnings),
                 "report": "drift_report.md",
                 "next_actions": next_actions,
+                "advisory_count": len(self.advisories),
             }
         )
         return {
@@ -212,6 +249,7 @@ class ScanResult:
             ],
             "state": self.state,
             "warnings": [warning.to_dict() for warning in self.warnings],
+            "advisories": [advisory.to_dict() for advisory in self.advisories],
             "summary": summary,
         }
 

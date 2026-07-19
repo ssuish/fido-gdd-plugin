@@ -41,7 +41,7 @@ def test_scan_returns_exact_normalized_matches_and_writes_root_artifacts(
     assert result.duration_ms >= 0
     assert (root / "drift_report.md").is_file()
     artifact = json.loads((root / "drift.json").read_text())
-    assert artifact["schema_version"] == "1.2"
+    assert artifact["schema_version"] == "1.3"
     assert set(artifact) == {
         "schema_version",
         "scan",
@@ -52,6 +52,7 @@ def test_scan_returns_exact_normalized_matches_and_writes_root_artifacts(
         "relationships",
         "state",
         "warnings",
+        "advisories",
         "summary",
     }
     assert artifact["findings"][0]["status"] == "MATCHED"
@@ -64,6 +65,7 @@ def test_scan_returns_exact_normalized_matches_and_writes_root_artifacts(
         "report": "drift_report.md",
         "state": "COMPLETE",
         "total": 1,
+        "advisory_count": 0,
         "warning_count": 0,
     }
     report = (root / "drift_report.md").read_text()
@@ -83,7 +85,9 @@ def test_missing_tracked_entity_is_reported(tmp_path: Path) -> None:
     assert [finding.status for finding in result.findings] == ["MATCHED", "MISSING"]
     assert result.summary.matched == 1
     assert result.summary.total == 2
-    assert "MISSING: MissingSystem" in (root / "drift_report.md").read_text()
+    report = (root / "drift_report.md").read_text()
+    assert "MISSING: MissingSystem" in report
+    assert "MISSING ownership: implement or unmark/remove" in report
 
 
 def test_artifacts_agree_and_authoritative_inputs_are_unchanged(
@@ -350,6 +354,72 @@ def test_unmarked_headings_and_list_items_are_advisory_candidates(
     assert "Coverage: 0/0 (N/A)" in report
     assert "CANDIDATE: Combat" in report
     assert "Add [entity: type]" in report
+
+
+def test_empty_entity_marker_names_are_scan_advisories_not_tracked(
+    tmp_path: Path,
+) -> None:
+    root = copy_fixture(tmp_path)
+    (root / "GDD.md").write_text(
+        "## Combat Loop [entity: system]\n"
+        "## Multiplayer [entity: system] [planned]\n"
+        "[entity: system]\n"
+        "[entity: class] ValidName — still tracked.\n"
+    )
+
+    result = scan(root, default_scan_config())
+
+    assert [entity.name for entity in result.tracked_entities] == ["ValidName"]
+    assert len(result.advisories) == 3
+    assert [advisory.code for advisory in result.advisories] == [
+        "EMPTY_MARKER_NAME",
+        "EMPTY_MARKER_NAME",
+        "EMPTY_MARKER_NAME",
+    ]
+    assert [advisory.path for advisory in result.advisories] == [
+        "GDD.md",
+        "GDD.md",
+        "GDD.md",
+    ]
+    assert [
+        advisory.reason.split(":", maxsplit=1)[0] for advisory in result.advisories
+    ] == [
+        "line 1",
+        "line 2",
+        "line 3",
+    ]
+    assert result.state == "COMPLETE"
+    assert result.warnings == ()
+    assert result.summary.coverage_percent == 0.0
+    artifact = json.loads((root / "drift.json").read_text())
+    assert artifact["schema_version"] == "1.3"
+    assert len(artifact["advisories"]) == 3
+    assert artifact["summary"]["advisory_count"] == 3
+    report = (root / "drift_report.md").read_text()
+    assert "## Advisories" in report
+    assert "EMPTY_MARKER_NAME" in report
+    assert "put [entity: type] before" in report
+
+
+def test_advisories_alone_keep_complete_untracked_scan_and_explain_na(
+    tmp_path: Path,
+) -> None:
+    root = copy_fixture(tmp_path)
+    (root / "GDD.md").write_text("## Combat Loop [entity: system]\n")
+
+    result = scan(root, default_scan_config())
+
+    assert result.tracked_entities == ()
+    assert len(result.advisories) == 1
+    assert result.state == "COMPLETE"
+    assert result.summary.coverage_percent is None
+    assert result.warnings == ()
+    summary = result.to_dict()["summary"]
+    assert summary["coverage_qualified"] is False
+    assert any("not marked yet" in action for action in summary["next_actions"])
+    report = (root / "drift_report.md").read_text()
+    assert "Coverage: 0/0 (N/A)" in report
+    assert "not marked yet" in report
 
 
 def test_drift_toml_overrides_discovery_excludes_and_maps_names(tmp_path: Path) -> None:

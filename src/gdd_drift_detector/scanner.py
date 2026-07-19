@@ -20,6 +20,7 @@ from .models import (
     Finding,
     FindingEvidence,
     Relationship,
+    ScanAdvisory,
     ScanConfig,
     ScanFailure,
     ScanResult,
@@ -76,7 +77,7 @@ def scan(project_root: Path, config: ScanConfig | None = None) -> ScanResult:
     resolved_config, config_warnings = _resolve_scan_config(
         root, config, project_config
     )
-    tracked, candidates, gdd_warnings = _parse_gdd_sources(
+    tracked, candidates, gdd_warnings, gdd_advisories = _parse_gdd_sources(
         root, resolved_config.gdd_paths
     )
     parsed_code: list[tuple[list[CodeEntity], list[Relationship]]] = []
@@ -125,7 +126,7 @@ def scan(project_root: Path, config: ScanConfig | None = None) -> ScanResult:
         coverage_percent=(matched / total * 100) if total else None,
     )
     result = ScanResult(
-        schema_version="1.2",
+        schema_version="1.3",
         project_root=str(root),
         tracked_entities=tracked,
         code_entities=code,
@@ -134,6 +135,7 @@ def scan(project_root: Path, config: ScanConfig | None = None) -> ScanResult:
         relationships=relationships,
         state="PARTIAL" if warnings else "COMPLETE",
         warnings=warnings,
+        advisories=gdd_advisories,
         summary=summary,
         duration_ms=int((time.perf_counter() - started) * 1000),
     )
@@ -319,9 +321,14 @@ def _validate_inputs(
 def _parse_gdd_sources(
     root: Path, paths: tuple[Path, ...]
 ) -> tuple[
-    tuple[TrackedEntity, ...], tuple[CandidateEntity, ...], tuple[ScanWarning, ...]
+    tuple[TrackedEntity, ...],
+    tuple[CandidateEntity, ...],
+    tuple[ScanWarning, ...],
+    tuple[ScanAdvisory, ...],
 ]:
-    parsed: list[tuple[list[TrackedEntity], list[CandidateEntity]]] = []
+    parsed: list[
+        tuple[list[TrackedEntity], list[CandidateEntity], list[ScanAdvisory]]
+    ] = []
     warnings: list[ScanWarning] = []
     for path in paths:
         try:
@@ -340,15 +347,16 @@ def _parse_gdd_sources(
                 )
             )
     return (
-        tuple(entity for entities, _ in parsed for entity in entities),
-        tuple(candidate for _, candidates in parsed for candidate in candidates),
+        tuple(entity for entities, _, _ in parsed for entity in entities),
+        tuple(candidate for _, candidates, _ in parsed for candidate in candidates),
         tuple(warnings),
+        tuple(advisory for _, _, items in parsed for advisory in items),
     )
 
 
 def _parse_gdd(
     root: Path, relative_path: Path
-) -> tuple[list[TrackedEntity], list[CandidateEntity]]:
+) -> tuple[list[TrackedEntity], list[CandidateEntity], list[ScanAdvisory]]:
     path = root / relative_path
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -358,6 +366,7 @@ def _parse_gdd(
         ) from error
     entities: list[TrackedEntity] = []
     candidates: list[CandidateEntity] = []
+    advisories: list[ScanAdvisory] = []
     for line_number, line in enumerate(lines, start=1):
         marker = _MARKER.search(line)
         if marker:
@@ -374,6 +383,24 @@ def _parse_gdd(
                         planned=bool(_PLANNED.search(line)),
                     )
                 )
+            else:
+                advisories.append(
+                    ScanAdvisory(
+                        path=str(relative_path),
+                        code="EMPTY_MARKER_NAME",
+                        reason=(
+                            f"line {line_number}: entity marker has no name after "
+                            "it; Fido tracks prefix markers only"
+                        ),
+                        impact=(
+                            "This line is not tracked and does not affect coverage."
+                        ),
+                        next_action=(
+                            "Put [entity: type] before the intended name, then "
+                            "rerun the local scan."
+                        ),
+                    )
+                )
             continue
         name_match = _HEADING.match(line) or _LIST_ITEM.match(line)
         if name_match:
@@ -384,7 +411,7 @@ def _parse_gdd(
                         name=name, path=str(relative_path), line=line_number
                     )
                 )
-    return entities, candidates
+    return entities, candidates, advisories
 
 
 def _findings(
@@ -819,6 +846,16 @@ def _write_artifacts(root: Path, result: ScanResult) -> None:
                 f"- CANDIDATE: {candidate.name} "
                 f"({candidate.path}:{candidate.line}) — {candidate.guidance}"
             )
+    if result.advisories:
+        lines.extend(["", "## Advisories", ""])
+        for advisory in result.advisories:
+            lines.extend(
+                [
+                    f"- {advisory.path} [{advisory.code}]: {advisory.reason}",
+                    f"  - Impact: {advisory.impact}",
+                    f"  - Next action: {advisory.next_action}",
+                ]
+            )
     if result.warnings:
         lines.extend(["", "## Warnings", ""])
         for warning in result.warnings:
@@ -832,15 +869,41 @@ def _write_artifacts(root: Path, result: ScanResult) -> None:
     lines.extend(["", "## Next actions", ""])
     if result.warnings:
         lines.append("- Resolve every warning, then rerun the local scan.")
+    if result.advisories:
+        lines.append(
+            "- Review scan advisories: put [entity: type] before each intended "
+            "name, then rerun the local scan."
+        )
+    if not result.tracked_entities:
+        lines.append(
+            "- Coverage is N/A: not marked yet; add "
+            "[entity: type] before intended names, then rerun the local scan."
+        )
     if any(finding.status == "MISSING" for finding in result.findings):
-        lines.append("- Implement or remove each missing tracked entity.")
+        lines.append(
+            "- MISSING ownership: implement or unmark/remove each tracked entity."
+        )
     if any(finding.status == "RENAMED?" for finding in result.findings):
         lines.append(
-            "- Confirm rename candidates through accepted_mappings in drift.toml."
+            "- RENAMED? ownership: add accepted_mappings or reject each candidate; "
+            "do not count it as matched without accepted_mappings."
         )
     if any(finding.status == "ORPHANED" for finding in result.findings):
-        lines.append("- Document, track, or remove each orphaned top-level symbol.")
-    if not result.warnings and not priority:
+        lines.append(
+            "- ORPHANED ownership: track, exclude in drift.toml, or remove each "
+            "top-level symbol."
+        )
+    if any(finding.status == "PLANNED" for finding in result.findings):
+        lines.append(
+            "- PLANNED ownership: keep entity outside the current coverage slice "
+            "until it is ready."
+        )
+    if (
+        not result.warnings
+        and not result.advisories
+        and not priority
+        and result.tracked_entities
+    ):
         lines.append(
             "- Keep the scan checkpoint in version control with the project artifacts."
         )
