@@ -43,9 +43,13 @@ def _build_parser() -> argparse.ArgumentParser:
     context_parser.add_argument(
         "--print",
         dest="print_block",
-        required=True,
         action="store_true",
-        help="Print the context block to stdout (required in this release slice)",
+        help="Print the context block to stdout instead of updating AGENTS.md",
+    )
+    context_parser.add_argument(
+        "--update-only",
+        action="store_true",
+        help="Update AGENTS.md only when it already contains a Fido context block",
     )
     context_parser.add_argument(
         "--verbose",
@@ -63,7 +67,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "scan":
         return run_scan(args.project_root, gdd=args.gdd, source=args.source)
     if args.command == "context":
-        return run_context(args.project_root, verbose=args.verbose)
+        return run_context(
+            args.project_root,
+            print_block=args.print_block,
+            update_only=args.update_only,
+            verbose=args.verbose,
+        )
     raise AssertionError(f"unhandled command: {args.command}")
 
 
