@@ -111,6 +111,48 @@ def resolve_scan_config(
     )
 
 
+def discover_context_gdd_paths(root: Path) -> tuple[Path, ...]:
+    """Find readable context inputs in config, default, then fallback order."""
+    project_config = read_project_config(root)
+    if project_config.gdd_patterns:
+        configured = discover_paths(
+            root, project_config.gdd_patterns, project_config.exclusions
+        )
+        readable_configured = _readable_text_paths(root, configured)
+        if readable_configured:
+            return readable_configured
+    defaults = discover_paths(root, _DEFAULT_GDD_PATTERNS, project_config.exclusions)
+    readable_defaults = _readable_text_paths(root, defaults)
+    if readable_defaults:
+        return readable_defaults
+    primary_paths = {
+        *defaults,
+        *discover_paths(
+            root, project_config.gdd_patterns or (), project_config.exclusions
+        ),
+    }
+    fallback = discover_paths(root, ("**/*.md",), project_config.exclusions)
+    return _readable_text_paths(
+        root,
+        tuple(
+            path
+            for path in fallback
+            if path not in primary_paths and path.name != "drift_report.md"
+        ),
+    )
+
+
+def _readable_text_paths(root: Path, paths: tuple[Path, ...]) -> tuple[Path, ...]:
+    return tuple(path for path in paths if _has_readable_text(root / path))
+
+
+def _has_readable_text(path: Path) -> bool:
+    try:
+        return bool(path.read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def discover_paths(
     root: Path, patterns: tuple[str, ...], exclusions: tuple[str, ...]
 ) -> tuple[Path, ...]:

@@ -70,6 +70,7 @@ def parse_gdd(
     entities: list[TrackedEntity] = []
     candidates: list[CandidateEntity] = []
     advisories: list[ScanAdvisory] = []
+    prose_candidate: CandidateEntity | None = None
     for line_number, line in enumerate(lines, start=1):
         marker = _MARKER.search(line)
         if marker:
@@ -114,4 +115,10 @@ def parse_gdd(
                         name=name, path=str(relative_path), line=line_number
                     )
                 )
+        elif line.strip() and prose_candidate is None:
+            prose_candidate = CandidateEntity(
+                name=line.strip(), path=str(relative_path), line=line_number
+            )
+    if not candidates and prose_candidate is not None:
+        candidates.append(prose_candidate)
     return entities, candidates, advisories
