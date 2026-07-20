@@ -47,15 +47,39 @@ jobs:
       - name: Assert production headers in dist
         run: test -f showcase/site/dist/_headers
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Worker (production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: showcase/site
+          command: deploy
+
+      - name: Sanitize preview alias
+        id: preview_alias
         if: >
-          github.event_name == 'push' ||
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          raw="${{ github.head_ref }}"
+          alias=$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//; s/^$/preview/')
+          # Aliases must start with a lowercase letter.
+          case "$alias" in
+            [a-z]*) ;;
+            *) alias="b-${alias}" ;;
+          esac
+          echo "alias=${alias}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Worker preview
+        if: >
+          github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: showcase/site
           command: >-
-            pages deploy showcase/site/dist
-            --project-name=fido
-            ${{ github.event_name == 'pull_request' && format('--branch={0}', github.head_ref) || '' }}
+            versions upload
+            --preview-alias=${{ steps.preview_alias.outputs.alias }}

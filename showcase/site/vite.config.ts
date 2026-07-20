@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Keep in sync with public/_headers (Cloudflare Pages production).
+// Keep in sync with public/_headers (Workers static assets production).
 const godotHeaders = {
   "Cross-Origin-Opener-Policy": "same-origin",
   "Cross-Origin-Embedder-Policy": "require-corp",

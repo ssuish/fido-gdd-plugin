@@ -82,7 +82,7 @@ def test_site_declares_accessible_states_and_responsive_reduced_motion_rules() -
 
 
 def test_site_declares_production_isolation_headers() -> None:
-    """Pages _headers must ship Godot isolation + baseline hardening."""
+    """Workers _headers must ship Godot isolation + baseline hardening."""
     headers_path = SITE / "public" / "_headers"
     assert headers_path.is_file()
     headers = headers_path.read_text()

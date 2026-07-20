@@ -1,0 +1,8 @@
+{
+  "name": "fido",
+  "compatibility_date": "2026-07-20",
+  "preview_urls": true,
+  "assets": {
+    "directory": "./dist"
+  }
+}

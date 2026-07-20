@@ -11,12 +11,14 @@ aligned with `release/manifest.json`.
 
 ### Added
 
-- Live Showcase website deploy to Cloudflare Pages (GitHub Actions + Wrangler)
-  with production isolation headers (`COOP` / `COEP` / `CORP`) for the Godot
-  Web export; intended production URL `https://fido.kofeejan.com`.
+- Live Showcase website deploy (GitHub Actions + Wrangler) with production
+  isolation headers (`COOP` / `COEP` / `CORP`) for the Godot Web export;
+  intended production URL `https://fido.kofeejan.com`.
 
 ### Changed
 
+- Showcase live deploy moved from Cloudflare Pages to a Workers + static
+  assets Worker (`fido`); PR previews use `wrangler versions upload`.
 - Detector engine internals split into named modules (`discovery`, `gdd_parse`,
   `gdscript_parse`, `matching`, `artifacts`, `narrative`) behind the same
   `scan()` boundary; Graph artifact and Drift report share one next-actions

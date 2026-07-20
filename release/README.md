@@ -38,38 +38,41 @@ move `[Unreleased]` notes into a dated `## [X.Y.Z]` section that matches
 and collaborators must treat changelog edits as part of every release change
 (see root [`AGENTS.md`](../AGENTS.md)).
 
-## Showcase Pages (live site)
+## Showcase Workers (live site)
 
-The Showcase website deploys to Cloudflare Pages via
+The Showcase website deploys as a Cloudflare Worker with static assets via
 [`.github/workflows/showcase-pages.yml`](../.github/workflows/showcase-pages.yml)
-(Wrangler direct upload). Production custom domain intent:
-`https://fido.kofeejan.com` (Pages project name `fido`).
+(`wrangler deploy` / `wrangler versions upload`). Config lives in
+`showcase/site/wrangler.jsonc` (Worker name `fido`). Production custom domain
+intent: `https://fido.kofeejan.com`.
 
 ### Human prerequisites
 
-1. Create an empty Cloudflare Pages project named **`fido`** (direct upload; do
-   not rely on Cloudflare’s Git integration as the primary deploy path).
-2. Create an API token scoped to **Account → Cloudflare Pages → Edit** (not a
-   Global API Key). Add GitHub Actions secrets:
+1. Create an API token scoped to **Account → Workers Scripts → Edit** (not a
+   Global API Key; a Pages-only token will fail). Add GitHub Actions secrets:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
-3. Attach custom domain `fido.kofeejan.com` in the Pages project settings and
-   configure DNS/SSL in Cloudflare. CI cannot finish domain attachment alone.
+2. First successful `main` deploy creates the Worker; no manual project create
+   step.
+3. Attach custom domain `fido.kofeejan.com` on the **Worker** in the Cloudflare
+   dashboard and configure DNS/SSL. CI cannot finish domain attachment alone.
 4. Optional: protect the GitHub Environment named `production` (used for
    `main` deploys).
 
-Pushes to `main` deploy production. Pull requests from this repository get
-preview deployments (`--branch` set to the PR head ref). Fork PRs build and
-verify but do not deploy (no secrets / fork guard).
+Pushes to `main` run `wrangler deploy` (production). Pull requests from this
+repository upload a preview version (`versions upload --preview-alias` from
+the sanitized PR head ref). Fork PRs build and verify but do not deploy (no
+secrets / fork guard).
 
 Deploy is gated on showcase lint, test, and build only; detector pytest lives
-in the separate CI workflow and does not block Pages.
+in the separate CI workflow and does not block the Showcase deploy.
 
 ### Post-deploy smoke
 
 After a green production deploy:
 
-1. Open the live URL (`https://fido.kofeejan.com` or `https://fido.pages.dev`).
+1. Open the live URL (`https://fido.kofeejan.com` or
+   `https://fido.<account-subdomain>.workers.dev`).
 2. Confirm Proof (Godot Showcase Web export) loads and plays.
 3. Confirm Plugin download ZIP is reachable from Install handoff.
 4. Confirm response headers include COOP `same-origin`, COEP `require-corp`,
