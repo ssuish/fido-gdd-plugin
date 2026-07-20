@@ -79,3 +79,18 @@ def test_site_declares_accessible_states_and_responsive_reduced_motion_rules() -
     assert "prefers-color-scheme" not in styles
     assert "grid-template-areas" in styles
     assert '"game"' in styles and '"findings"' in styles and '"evidence"' in styles
+
+
+def test_site_declares_production_isolation_headers() -> None:
+    """Pages _headers must ship Godot isolation + baseline hardening."""
+    headers_path = SITE / "public" / "_headers"
+    assert headers_path.is_file()
+    headers = headers_path.read_text()
+
+    assert "Cross-Origin-Opener-Policy: same-origin" in headers
+    assert "Cross-Origin-Embedder-Policy: require-corp" in headers
+    assert "Cross-Origin-Resource-Policy: same-origin" in headers
+    assert "X-Content-Type-Options: nosniff" in headers
+    assert "Referrer-Policy: strict-origin-when-cross-origin" in headers
+    assert "Permissions-Policy: camera=(), microphone=(), geolocation=()" in headers
+    assert "X-Frame-Options: SAMEORIGIN" in headers

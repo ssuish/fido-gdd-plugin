@@ -11,6 +11,10 @@ aligned with `release/manifest.json`.
 
 ### Added
 
+- Live Showcase website deploy to Cloudflare Pages (GitHub Actions + Wrangler)
+  with production isolation headers (`COOP` / `COEP` / `CORP`) for the Godot
+  Web export; intended production URL `https://fido.kofeejan.com`.
+
 ### Changed
 
 ### Fixed

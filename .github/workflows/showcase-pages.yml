@@ -1,0 +1,61 @@
+name: Showcase Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: showcase-pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            showcase/site/package-lock.json
+
+      - name: Install root workspace
+        run: npm ci
+
+      - name: Install showcase site
+        run: npm ci --prefix showcase/site
+
+      - name: Lint
+        run: npm run showcase:lint
+
+      - name: Test
+        run: npm run showcase:test
+
+      - name: Build
+        run: npm run showcase:build
+
+      - name: Assert production headers in dist
+        run: test -f showcase/site/dist/_headers
+
+      - name: Deploy to Cloudflare Pages
+        if: >
+          github.event_name == 'push' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy showcase/site/dist
+            --project-name=fido
+            ${{ github.event_name == 'pull_request' && format('--branch={0}', github.head_ref) || '' }}

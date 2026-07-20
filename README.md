@@ -238,12 +238,17 @@ print(result.state, result.summary.coverage_percent)
 This repo ships a frozen Godot 4.6.3 deck-builder fixture and a linked React
 site that walks through real Fido findings beside a playable Web export.
 
+Live site (once DNS is attached): [https://fido.kofeejan.com](https://fido.kofeejan.com).
+Until then, use the Pages project URL (`fido.pages.dev`) after deploy, or run
+locally:
+
 ```sh
 npm run showcase:dev
 ```
 
 Artifacts live under `showcase/site/public/` (`drift.json`, `game/`, downloads).
-The fixture project is `showcase/godot-deckbuilder/`.
+The fixture project is `showcase/godot-deckbuilder/`. Operator notes for
+Cloudflare Pages deploy live in [`release/README.md`](release/README.md).
 
 ---
 
