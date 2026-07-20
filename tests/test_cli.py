@@ -88,3 +88,40 @@ def test_flag_first_help_is_scan_help(capsys: pytest.CaptureFixture[str]) -> Non
     assert exited.value.code == 0
     assert "--project-root" in captured.out
     assert "--json" in captured.out
+
+
+def test_context_subcommand_is_reserved_not_implemented(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+
+    code = main(["context"])
+
+    captured = capsys.readouterr()
+    assert code != 0
+    assert "not implemented" in captured.err.lower()
+    assert not (root / "drift.json").exists()
+    assert not (root / "drift_report.md").exists()
+
+
+def test_context_reservation_leaves_legacy_scan_intact(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = copy_fixture(tmp_path)
+
+    code = main(
+        [
+            "--project-root",
+            str(root),
+            "--gdd",
+            "GDD.md",
+            "--source",
+            "scripts/player_controller.gd",
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert json.loads(captured.out)["summary"]["coverage_percent"] == 100.0
