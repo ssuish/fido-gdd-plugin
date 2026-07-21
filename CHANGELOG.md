@@ -9,6 +9,11 @@ aligned with `release/manifest.json`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Standalone ZIP now includes `README.md` so `uv tool install` on the extracted
+  package can build the `fido` wheel (hatchling requires the declared readme).
+
 ## [0.2.0] - 2026-07-22
 
 ### Added

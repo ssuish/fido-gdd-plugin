@@ -137,6 +137,7 @@ def test_release_versions_and_install_artifacts_are_aligned() -> None:
         names = set(archive.namelist())
         assert {
             "INSTALL.md",
+            "README.md",
             "marketplace.json",
             ".agents/plugins/marketplace.json",
             "pyproject.toml",
@@ -161,6 +162,11 @@ def test_release_versions_and_install_artifacts_are_aligned() -> None:
         )["project"]
         assert embedded_project["name"] == "fido"
         assert embedded_project["scripts"]["fido"] == "gdd_drift_detector.cli:main"
+        readme = embedded_project.get("readme")
+        assert isinstance(readme, str) and readme, "pyproject must declare readme"
+        assert readme in names, (
+            f"standalone ZIP must include hatchling readme path: {readme}"
+        )
 
 
 def test_standalone_zip_marketplace_paths_resolve_to_extracted_plugin(

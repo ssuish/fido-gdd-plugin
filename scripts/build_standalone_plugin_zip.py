@@ -23,6 +23,7 @@ PLUGIN_FILES = (
 
 ROOT_FILES = (
     "INSTALL.md",
+    "README.md",
     "marketplace.json",
     ".agents/plugins/marketplace.json",
     "pyproject.toml",
