@@ -49,7 +49,8 @@ def test_site_consumes_fixture_generated_artifact_without_synthetic_findings() -
     assert "shouldMountGameEmbed" in source
     app_source = (SITE / "src" / "App.tsx").read_text()
     proof_source = (SITE / "src" / "components" / "ProofSection.tsx").read_text()
-    # No eager /game/ probe on landing mount; iframe mounts only after facade activation.
+    # No eager /game/ probe on landing mount; iframe mounts only after facade
+    # activation.
     assert 'fetch("./game/index.html"' not in app_source
     assert 'fetch("./game/index.html"' not in proof_source
     assert "setGameActivated(true)" in proof_source
@@ -153,7 +154,8 @@ def test_site_ships_docs_page_with_sticky_nav_and_interactive_code() -> None:
     assert "docs-mobile-nav" in source
     assert ".docs-sidebar--desktop" in styles
     assert ".docs-mobile-nav" in styles
-    # Mobile TOC must not reuse a selector that hides nested links with the desktop sidebar.
+    # Mobile TOC must not reuse a selector that hides nested links with the
+    # desktop sidebar.
     assert ".docs-sidebar--desktop { display: none; }" in docs_css
     assert ".docs-sidebar { display: none" not in docs_css
     assert "styles/shared.css" in main_entry
