@@ -77,7 +77,8 @@ export function ProofSection({
       aria-labelledby="walkthrough-title"
       ref={sectionRef}
     >
-      <div className="section-heading">
+      <div className="section-heading" data-reveal>
+        <p className="eyebrow">GUIDED DISCOVERY</p>
         <h2 id="walkthrough-title">Play the slice. Inspect the finding.</h2>
         <p>
           The game stays freely playable. Optional hints and a manual handoff connect one showcase
@@ -86,7 +87,7 @@ export function ProofSection({
       </div>
 
       <div className="proof-grid">
-        <article id="game-fixture" className="game-panel panel">
+        <article id="game-fixture" className="game-panel panel" data-reveal>
           <div className="panel-header">
             <span>SHOWCASE GAME</span>
             <span className="live-state live-scan">GODOT WEB</span>
@@ -125,7 +126,11 @@ export function ProofSection({
           )}
         </article>
 
-        <article className="findings-panel panel" aria-labelledby="findings-heading">
+        <article
+          className="findings-panel panel"
+          aria-labelledby="findings-heading"
+          data-reveal
+        >
           <div className="panel-header">
             <span id="findings-heading">GENERATED DRIFT REPORT</span>
             <span className={`state-badge ${report.state.toLowerCase()}`}>{report.state}</span>
@@ -171,7 +176,11 @@ export function ProofSection({
           )}
         </article>
 
-        <article className="evidence-panel panel" aria-labelledby="evidence-heading">
+        <article
+          className="evidence-panel panel"
+          aria-labelledby="evidence-heading"
+          data-reveal
+        >
           <div className="panel-header">
             <span id="evidence-heading">EVIDENCE</span>
             <span className={discovery.evidenceRevealed ? "live-state" : "muted-label"}>
