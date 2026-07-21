@@ -1,6 +1,14 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import type { Finding, Report } from "../types";
 import { Evidence } from "./Evidence";
+import {
+  GAME_EMBED_SRC,
+  GAME_EMBED_TITLE,
+  GAME_FACADE_COPY,
+  GAME_LOAD_BUTTON_LABEL,
+  GAME_LOAD_META,
+  shouldMountGameEmbed,
+} from "../discovery/gameFacade";
 import {
   HINT_COPY,
   SCENARIO_CAPTION,
@@ -45,8 +53,13 @@ export function ProofSection({
   findingButtonRefs,
 }: ProofSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const [gameActivated, setGameActivated] = useState(false);
   const selectedFinding = findings[discovery.selectedIndex] ?? null;
   const visibleHint = discovery.hintVisible ? hintText(discovery.hintStage) : null;
+  const mountGameEmbed = shouldMountGameEmbed({
+    gameAvailable,
+    activated: gameActivated,
+  });
 
   useEffect(() => {
     const node = sectionRef.current;
@@ -92,12 +105,31 @@ export function ProofSection({
             <span>SHOWCASE GAME</span>
             <span className="live-state live-scan">GODOT WEB</span>
           </div>
-          {gameAvailable ? (
+          {mountGameEmbed ? (
             <iframe
               className="game-embed"
-              src="./game/index.html"
-              title="Playable Godot deck-builder fixture"
+              src={GAME_EMBED_SRC}
+              title={GAME_EMBED_TITLE}
+              loading="lazy"
             />
+          ) : gameAvailable ? (
+            <div className="game-frame game-facade">
+              <div className="game-title">DECK BUILDER</div>
+              <p className="game-facade-copy" id="game-facade-copy">
+                {GAME_FACADE_COPY}
+              </p>
+              <button
+                type="button"
+                className="game-load-button"
+                aria-describedby="game-facade-copy game-load-meta"
+                onClick={() => setGameActivated(true)}
+              >
+                {GAME_LOAD_BUTTON_LABEL}
+              </button>
+              <p className="game-load-meta" id="game-load-meta">
+                {GAME_LOAD_META}
+              </p>
+            </div>
           ) : (
             <div className="game-frame game-placeholder">
               <div className="game-title">DECK BUILDER</div>

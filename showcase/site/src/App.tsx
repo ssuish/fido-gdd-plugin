@@ -24,7 +24,8 @@ function App() {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { theme, toggleTheme } = useTheme();
-  const [gameAvailable, setGameAvailable] = useState(false);
+  // Showcase ships the Web export; ProofSection confirms on click-to-load (no eager /game/).
+  const gameAvailable = true;
   const [discovery, setDiscovery] = useState(() => createInitialDiscovery(0));
   const [proofSeen, setProofSeen] = useState(false);
   const findingButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -37,12 +38,6 @@ function App() {
       })
       .then(setReport)
       .catch((reason: Error) => setError(reason.message));
-  }, []);
-
-  useEffect(() => {
-    fetch("./game/index.html", { method: "HEAD" })
-      .then((response) => setGameAvailable(response.ok))
-      .catch(() => setGameAvailable(false));
   }, []);
 
   const findings = useMemo(() => report?.findings ?? [], [report]);

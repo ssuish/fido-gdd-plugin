@@ -35,6 +35,10 @@ aligned with `release/manifest.json`.
 
 ### Changed
 
+- Showcase playable demo uses an accessible click-to-load facade: the ~35 MB
+  Godot Web export iframe mounts only after explicit activation (unavailable
+  builds still show the placeholder). No `/game/` network request runs before
+  that activation.
 - Showcase styles split into shared/landing/docs entry sheets with fluid
   `clamp()` type and spacing, content-driven grids, earlier hero/proof stacking,
   and a fixed mobile docs TOC that no longer hides nested nav links; docs
