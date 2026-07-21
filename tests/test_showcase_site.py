@@ -40,7 +40,20 @@ def test_site_consumes_fixture_generated_artifact_without_synthetic_findings() -
     assert "report.candidates" in source
     assert "game-fixture" in source
     assert "game-embed" in source
-    assert 'src="./game/index.html"' in source
+    assert "game-facade" in source
+    assert "game-load-button" in source
+    assert "about 35 MB" in source
+    assert "Load playable demo" in source
+    assert 'loading="lazy"' in source
+    assert '"./game/index.html"' in source
+    assert "shouldMountGameEmbed" in source
+    app_source = (SITE / "src" / "App.tsx").read_text()
+    proof_source = (SITE / "src" / "components" / "ProofSection.tsx").read_text()
+    # No eager /game/ probe on landing mount; iframe mounts only after facade
+    # activation.
+    assert 'fetch("./game/index.html"' not in app_source
+    assert 'fetch("./game/index.html"' not in proof_source
+    assert "setGameActivated(true)" in proof_source
     assert "Show related finding" in source
     assert 'RELATED_FINDING_NAME = "Shield"' in source
     # Frozen Web export has no interaction bridge; manual handoff is the reveal path.
