@@ -11,6 +11,9 @@ aligned with `release/manifest.json`.
 
 ### Added
 
+- `fido init` bootstraps `AGENTS.md` with Fido delimiters (create or append,
+  never overwrite an existing Fido block) and prints Codex plugin install
+  guidance; Claude/Cursor host config is not written by default.
 - `fido context` now creates or refreshes its game design context block in
   `AGENTS.md` by default; `--print` remains stdout-only and `--update-only`
   refreshes only an existing Fido block.

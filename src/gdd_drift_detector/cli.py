@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .commands.context import run_context
+from .commands.init import run_init
 from .commands.scan import run_scan
 
 
@@ -57,6 +58,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Include capped implementation details and a suggested next prompt",
     )
 
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Bootstrap AGENTS.md with Fido delimiters (fido init)",
+    )
+    init_parser.add_argument(
+        "--project-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root for AGENTS.md (default: current directory)",
+    )
+
     return parser
 
 
@@ -73,6 +85,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             update_only=args.update_only,
             verbose=args.verbose,
         )
+    if args.command == "init":
+        return run_init(args.project_root)
     raise AssertionError(f"unhandled command: {args.command}")
 
 

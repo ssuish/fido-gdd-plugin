@@ -382,3 +382,85 @@ def test_context_print_leaves_legacy_scan_intact(
     captured = capsys.readouterr()
     assert code == 0
     assert json.loads(captured.out)["summary"]["coverage_percent"] == 100.0
+
+
+def test_init_creates_agents_file_with_placeholder_block(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+
+    code = main(["init", "--project-root", str(root)])
+
+    captured = capsys.readouterr()
+    agents = root / "AGENTS.md"
+    assert code == 0
+    assert agents.is_file()
+    text = agents.read_text()
+    assert text.startswith("<!-- fido:context:start -->\n")
+    assert "## Game Design Context" in text
+    assert "fido context" in text
+    assert text.rstrip().endswith("<!-- fido:context:end -->")
+    assert "codex plugin marketplace add" in captured.out.lower()
+    assert "/plugins" in captured.out
+    assert not (root / ".claude").exists()
+    assert not (root / ".cursor").exists()
+
+
+def test_init_appends_placeholder_without_destroying_existing_content(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    agents = root / "AGENTS.md"
+    agents.write_text("# Local instructions\n")
+
+    code = main(["init", "--project-root", str(root)])
+    capsys.readouterr()
+
+    text = agents.read_text()
+    assert code == 0
+    assert text.startswith("# Local instructions\n\n<!-- fido:context:start -->")
+    assert text.count("<!-- fido:context:start -->") == 1
+    assert text.rstrip().endswith("<!-- fido:context:end -->")
+
+
+def test_init_preserves_existing_fido_block(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    agents = root / "AGENTS.md"
+    existing = (
+        "# Local instructions\n"
+        "<!-- fido:context:start -->\n"
+        "populated block\n"
+        "<!-- fido:context:end -->\n"
+        "Keep this note.\n"
+    )
+    agents.write_text(existing)
+
+    code = main(["init", "--project-root", str(root)])
+    capsys.readouterr()
+
+    assert code == 0
+    assert agents.read_text() == existing
+
+
+def test_init_then_context_populates_fido_block(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = copy_showcase(tmp_path)
+
+    init_code = main(["init", "--project-root", str(root)])
+    capsys.readouterr()
+    context_code = main(["context", "--project-root", str(root)])
+    capsys.readouterr()
+
+    agents = (root / "AGENTS.md").read_text()
+    assert init_code == 0
+    assert context_code == 0
+    assert agents.startswith("<!-- fido:context:start -->\n")
+    assert "## Game Design Context" in agents
+    assert "Showcase deck-builder" in agents
+    assert agents.rstrip().endswith("<!-- fido:context:end -->")
