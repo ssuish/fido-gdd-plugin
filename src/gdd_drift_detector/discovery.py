@@ -13,12 +13,13 @@ from .models import ScanConfig, ScanFailure, ScanWarning
 from .names import normalize_name
 
 _GODOT_4_PROJECT = re.compile(r"^\s*config_version\s*=\s*5\s*$", re.MULTILINE)
-_DEFAULT_GDD_PATTERNS = (
+DEFAULT_GDD_PATTERNS = (
     "GDD.md",
     "design.md",
     "docs/gdd/**/*.md",
     "docs/design/**/*.md",
 )
+_DEFAULT_GDD_PATTERNS = DEFAULT_GDD_PATTERNS
 
 
 @dataclass(frozen=True)

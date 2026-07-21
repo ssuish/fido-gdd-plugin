@@ -11,6 +11,10 @@ aligned with `release/manifest.json`.
 
 ### Added
 
+- `fido context --if-stale` skips scan and rewrite when configured GDD/sources
+  are no newer than the block `Last updated` timestamp (falls back to
+  `AGENTS.md` mtime); `--fresh` forces a new local scan. Recent `drift.json`
+  (under 24 hours) can refresh the context block without rescanning.
 - `fido init` bootstraps `AGENTS.md` with Fido delimiters (create or append,
   never overwrite an existing Fido block) and prints Codex plugin install
   guidance; Claude/Cursor host config is not written by default.

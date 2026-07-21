@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Literal
 
 from gdd_drift_detector.context_block import render_context_block
@@ -14,6 +15,8 @@ from gdd_drift_detector.models import (
     ScanSummary,
     TrackedEntity,
 )
+
+_FIXED_NOW = datetime(2026, 7, 21, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _entity(name: str, *, planned: bool = False, line: int = 1) -> TrackedEntity:
@@ -71,10 +74,11 @@ def _result(
 
 
 def test_render_context_block_includes_delimiters_and_heading() -> None:
-    block = render_context_block(_result(()))
+    block = render_context_block(_result(()), now=_FIXED_NOW)
 
     assert block.startswith("<!-- fido:context:start -->\n")
     assert "## Game Design Context" in block
+    assert "> Last updated: 2026-07-21T12:00:00Z." in block
     assert block.rstrip().endswith("<!-- fido:context:end -->")
     assert "|" not in block
 
@@ -134,7 +138,7 @@ def test_render_context_block_derives_identity_and_status_sections() -> None:
         coverage_percent=33.333,
     )
 
-    block = render_context_block(result)
+    block = render_context_block(result, now=_FIXED_NOW)
 
     assert "### What this game is\nShowcase deck-builder\n" in block
     assert "- [entity: class] DeckBuilder — owns the run." in block
@@ -169,8 +173,8 @@ def test_render_context_block_is_deterministic_and_bounds_missing() -> None:
         total=4,
     )
 
-    first = render_context_block(result)
-    second = render_context_block(result)
+    first = render_context_block(result, now=_FIXED_NOW)
+    second = render_context_block(result, now=_FIXED_NOW)
 
     assert first == second
     assert "1. **Entity1**" in first
@@ -184,7 +188,7 @@ def test_render_context_block_is_deterministic_and_bounds_missing() -> None:
 
 
 def test_render_context_block_empty_sections_use_placeholders() -> None:
-    block = render_context_block(_result(()))
+    block = render_context_block(_result(()), now=_FIXED_NOW)
 
     assert "### What this game is\nNone\n" in block
     assert "### Design intent\n- (none)\n" in block
@@ -200,7 +204,7 @@ def test_render_context_block_marks_renamed_as_partial_without_code_path() -> No
         None,
         _evidence("[entity: system] Enemy AI — rename candidate.", gdd_line=7),
     )
-    block = render_context_block(_result((finding,), total=1))
+    block = render_context_block(_result((finding,), total=1), now=_FIXED_NOW)
 
     assert (
         "1. **Enemy AI** — [entity: system] Enemy AI — rename candidate. *(Partial)*"
@@ -209,7 +213,8 @@ def test_render_context_block_marks_renamed_as_partial_without_code_path() -> No
 
 def test_render_context_block_marks_partial_scan_coverage() -> None:
     block = render_context_block(
-        _result((), matched=0, total=1, coverage_percent=0.0, state="PARTIAL")
+        _result((), matched=0, total=1, coverage_percent=0.0, state="PARTIAL"),
+        now=_FIXED_NOW,
     )
 
     assert "**Coverage:** 0/1 tracked entities implemented (0%); partial scan" in block
@@ -237,8 +242,8 @@ def test_render_context_block_verbose_adds_capped_table_legend_and_prompt() -> N
         total=12,
     )
 
-    minimal = render_context_block(result)
-    verbose = render_context_block(result, verbose=True)
+    minimal = render_context_block(result, now=_FIXED_NOW)
+    verbose = render_context_block(result, verbose=True, now=_FIXED_NOW)
 
     assert "### Implementation state" not in minimal
     assert "### Implementation state" in verbose
@@ -268,6 +273,6 @@ def test_render_context_block_verbose_adds_capped_table_legend_and_prompt() -> N
 def test_verbose_prompt_references_gdd_when_intent_excerpt_is_missing() -> None:
     finding = Finding("MISSING", _entity("Shield", line=6), None, _evidence(None))
 
-    block = render_context_block(_result((finding,)), verbose=True)
+    block = render_context_block(_result((finding,)), verbose=True, now=_FIXED_NOW)
 
     assert "Implement **Shield**: the GDD entry at `GDD.md:6`" in block

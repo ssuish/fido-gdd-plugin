@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -11,6 +14,35 @@ from gdd_drift_detector.commands.scan import run_scan
 
 FIXTURE = Path(__file__).parent / "fixtures" / "godot-project"
 SHOWCASE = Path(__file__).resolve().parents[1] / "showcase" / "godot-deckbuilder"
+_FIXED_NOW = datetime(2026, 7, 21, 12, 0, 0, tzinfo=timezone.utc)
+_FIXED_TS = "2026-07-21T12:00:00Z"
+
+
+def _set_mtime(path: Path, when: float) -> None:
+    os.utime(path, (when, when))
+
+
+def _iso_z(when: float) -> str:
+    return datetime.fromtimestamp(when, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _agents_block_with_timestamp(body: str, timestamp: str = _FIXED_TS) -> str:
+    return (
+        "<!-- fido:context:start -->\n"
+        "## Game Design Context\n"
+        "\n"
+        f"> Last updated: {timestamp}.\n"
+        "\n"
+        f"{body}\n"
+        "<!-- fido:context:end -->\n"
+    )
+
+
+def _freeze_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "gdd_drift_detector.context_block.utc_now",
+        lambda: _FIXED_NOW,
+    )
 
 
 def copy_fixture(tmp_path: Path) -> Path:
@@ -130,10 +162,11 @@ def test_context_print_renders_scan_backed_block(
 
 
 def test_context_print_is_deterministic(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = copy_showcase(tmp_path)
     argv = ["context", "--print", "--project-root", str(root)]
+    _freeze_clock(monkeypatch)
 
     first_code = main(argv)
     first = capsys.readouterr()
@@ -143,12 +176,14 @@ def test_context_print_is_deterministic(
     assert first_code == 0
     assert second_code == 0
     assert first.out == second.out
+    assert f"Last updated: {_FIXED_TS}" in first.out
 
 
 def test_context_default_creates_agents_file_with_context_block(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = copy_showcase(tmp_path)
+    _freeze_clock(monkeypatch)
 
     code = main(["context", "--project-root", str(root)])
 
@@ -159,6 +194,7 @@ def test_context_default_creates_agents_file_with_context_block(
     assert captured.err == ""
     assert agents.read_text().startswith("<!-- fido:context:start -->\n")
     assert agents.read_text().rstrip().endswith("<!-- fido:context:end -->")
+    assert f"Last updated: {_FIXED_TS}" in agents.read_text()
     created = agents.read_text()
 
     rerun_code = main(["context", "--project-root", str(root)])
@@ -169,11 +205,12 @@ def test_context_default_creates_agents_file_with_context_block(
 
 
 def test_context_appends_or_replaces_only_its_delimited_agents_block(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = copy_showcase(tmp_path)
     agents = root / "AGENTS.md"
     agents.write_text("# Local instructions\n")
+    _freeze_clock(monkeypatch)
 
     append_code = main(["context", "--project-root", str(root)])
     capsys.readouterr()
@@ -352,6 +389,8 @@ def test_context_empty_gdd_uses_readme_or_suggests_setup_gdd(
     fallback_code = main(["context", "--print", "--project-root", str(root)])
     fallback = capsys.readouterr()
     (root / "README.md").unlink()
+    (root / "drift.json").unlink(missing_ok=True)
+    (root / "drift_report.md").unlink(missing_ok=True)
 
     cold_start_code = main(["context", "--print", "--project-root", str(root)])
     cold_start = capsys.readouterr()
@@ -464,3 +503,169 @@ def test_init_then_context_populates_fido_block(
     assert "## Game Design Context" in agents
     assert "Showcase deck-builder" in agents
     assert agents.rstrip().endswith("<!-- fido:context:end -->")
+
+
+def test_context_if_stale_uses_agents_mtime_when_timestamp_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = copy_showcase(tmp_path)
+    agents = root / "AGENTS.md"
+    agents.write_text(
+        "<!-- fido:context:start -->\n"
+        "## Game Design Context\n"
+        "\n"
+        "seeded block without stamp\n"
+        "<!-- fido:context:end -->\n"
+    )
+    baseline = time.time() - 1800
+    older = baseline - 600
+    _set_mtime(agents, baseline)
+    for path in (root / "GDD.md", *root.rglob("*.gd")):
+        _set_mtime(path, older)
+    before = agents.read_bytes()
+
+    code = main(["context", "--if-stale", "--project-root", str(root)])
+    capsys.readouterr()
+
+    assert code == 0
+    assert agents.read_bytes() == before
+
+
+def test_context_if_stale_skips_scan_and_rewrite_when_inputs_unchanged(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = copy_showcase(tmp_path)
+    agents = root / "AGENTS.md"
+    baseline = time.time() - 1800
+    agents.write_text(_agents_block_with_timestamp("seeded block", _iso_z(baseline)))
+    drift = root / "drift.json"
+    report = root / "drift_report.md"
+    drift.write_text("{}\n")
+    report.write_text("# Drift report\n")
+    older = baseline - 600
+    for path in (
+        agents,
+        drift,
+        report,
+        root / "GDD.md",
+        *root.rglob("*.gd"),
+    ):
+        _set_mtime(path, older)
+    before_agents = agents.read_bytes()
+    before_drift_mtime = drift.stat().st_mtime
+
+    code = main(["context", "--if-stale", "--project-root", str(root)])
+    capsys.readouterr()
+
+    assert code == 0
+    assert agents.read_bytes() == before_agents
+    assert drift.stat().st_mtime == before_drift_mtime
+
+
+def test_context_if_stale_refreshes_when_gdd_is_newer(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = copy_showcase(tmp_path)
+    agents = root / "AGENTS.md"
+    baseline = time.time() - 3600
+    agents.write_text(_agents_block_with_timestamp("seeded block", _iso_z(baseline)))
+    _set_mtime(agents, baseline)
+    for path in root.rglob("*.gd"):
+        _set_mtime(path, baseline - 60)
+    _set_mtime(root / "GDD.md", time.time())
+    _freeze_clock(monkeypatch)
+
+    code = main(["context", "--if-stale", "--project-root", str(root)])
+    capsys.readouterr()
+
+    text = agents.read_text()
+    assert code == 0
+    assert "seeded block" not in text
+    assert "Showcase deck-builder" in text
+    assert f"Last updated: {_FIXED_TS}" in text
+
+
+def test_context_print_if_stale_emits_existing_block_without_scan(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = copy_showcase(tmp_path)
+    agents = root / "AGENTS.md"
+    baseline = time.time() - 1800
+    block = _agents_block_with_timestamp("seeded block", _iso_z(baseline))
+    agents.write_text(block)
+    drift = root / "drift.json"
+    drift.write_text("{}\n")
+    older = baseline - 600
+    for path in (agents, drift, root / "GDD.md", *root.rglob("*.gd")):
+        _set_mtime(path, older)
+    before_drift_mtime = drift.stat().st_mtime
+
+    code = main(["context", "--print", "--if-stale", "--project-root", str(root)])
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert captured.out == block
+    assert drift.stat().st_mtime == before_drift_mtime
+
+
+def test_context_reuses_recent_drift_json_without_rescan(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = copy_showcase(tmp_path)
+    _freeze_clock(monkeypatch)
+    assert main(["context", "--project-root", str(root)]) == 0
+    capsys.readouterr()
+    agents = root / "AGENTS.md"
+    drift = root / "drift.json"
+    report = root / "drift_report.md"
+    cached = json.loads(drift.read_text())
+    cached["candidates"][0]["name"] = "Cached identity"
+    drift.write_text(json.dumps(cached, indent=2, sort_keys=True) + "\n")
+    report.write_text("# Drift report\nunchanged\n")
+    recent = _FIXED_NOW.timestamp() - 60
+    _set_mtime(drift, recent)
+    _set_mtime(report, recent)
+    before_report = report.read_text()
+    agents.write_text(
+        _agents_block_with_timestamp("stale seeded block", "2020-01-01T00:00:00Z")
+    )
+    _set_mtime(agents, _FIXED_NOW.timestamp() - 7200)
+    _set_mtime(root / "GDD.md", _FIXED_NOW.timestamp() - 30)
+
+    code = main(["context", "--project-root", str(root)])
+    capsys.readouterr()
+
+    text = agents.read_text()
+    assert code == 0
+    assert "Cached identity" in text
+    assert "stale seeded block" not in text
+    assert report.read_text() == before_report
+
+
+def test_context_fresh_forces_rescan_even_with_recent_cache(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = copy_showcase(tmp_path)
+    _freeze_clock(monkeypatch)
+    assert main(["context", "--project-root", str(root)]) == 0
+    capsys.readouterr()
+    agents = root / "AGENTS.md"
+    drift = root / "drift.json"
+    report = root / "drift_report.md"
+    cached = json.loads(drift.read_text())
+    cached["candidates"][0]["name"] = "Cached identity"
+    drift.write_text(json.dumps(cached, indent=2, sort_keys=True) + "\n")
+    report.write_text("# Drift report\nstale report\n")
+    recent = _FIXED_NOW.timestamp() - 60
+    _set_mtime(drift, recent)
+    _set_mtime(report, recent)
+    agents.write_text(_agents_block_with_timestamp("seeded", "2020-01-01T00:00:00Z"))
+
+    code = main(["context", "--fresh", "--project-root", str(root)])
+    capsys.readouterr()
+
+    text = agents.read_text()
+    assert code == 0
+    assert "Cached identity" not in text
+    assert "Showcase deck-builder" in text
+    assert "stale report" not in report.read_text()

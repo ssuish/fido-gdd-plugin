@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from .models import Finding, ScanResult
 
 _EXCERPT_MAX = 120
 _VERBOSE_FINDING_MAX = 10
 
 
-def render_context_block(result: ScanResult, *, verbose: bool = False) -> str:
+def utc_now() -> datetime:
+    """Return the current UTC time; tests may patch this for determinism."""
+    return datetime.now(timezone.utc)
+
+
+def format_last_updated(when: datetime | None = None) -> str:
+    stamp = (when or utc_now()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return f"> Last updated: {stamp}."
+
+
+def render_context_block(
+    result: ScanResult,
+    *,
+    verbose: bool = False,
+    now: datetime | None = None,
+) -> str:
     """Render a deterministic, paste-ready game design context block."""
     identity = _game_identity(result)
     intent_lines = _design_intent_lines(result)
@@ -21,6 +38,8 @@ def render_context_block(result: ScanResult, *, verbose: bool = False) -> str:
     parts = [
         "<!-- fido:context:start -->",
         "## Game Design Context",
+        "",
+        format_last_updated(now),
         "",
         "### What this game is",
         identity,

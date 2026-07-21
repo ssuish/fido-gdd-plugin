@@ -57,6 +57,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include capped implementation details and a suggested next prompt",
     )
+    context_parser.add_argument(
+        "--if-stale",
+        action="store_true",
+        help="Skip scan and rewrite when GDD/sources are not newer than the block",
+    )
+    context_parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Force a new local scan instead of reusing a recent drift.json",
+    )
 
     init_parser = subparsers.add_parser(
         "init",
@@ -84,6 +94,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print_block=args.print_block,
             update_only=args.update_only,
             verbose=args.verbose,
+            if_stale=args.if_stale,
+            fresh=args.fresh,
         )
     if args.command == "init":
         return run_init(args.project_root)
