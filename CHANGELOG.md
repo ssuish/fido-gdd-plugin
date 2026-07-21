@@ -39,6 +39,9 @@ aligned with `release/manifest.json`.
   `clamp()` type and spacing, content-driven grids, earlier hero/proof stacking,
   and a fixed mobile docs TOC that no longer hides nested nav links; docs
   layout contains long code/tab content at narrow widths.
+- Showcase landing redesign: airier spacing, larger type scale, benefits and
+  artifact-backed trust sections, scroll reveals, and a focused conversion CTA
+  while preserving Fido color/font tokens and the interactive proof flow.
 - README, INSTALL, and showcase install CTA lead with `fido context` /
   `fido-context`; `fido scan` / `detect-drift` are framed as an explicit audit.
 - Plugin `defaultPrompt` / descriptions lead with session context refresh;
@@ -60,6 +63,8 @@ aligned with `release/manifest.json`.
 
 - Showcase docs narrow layout no longer horizontally scrolls from long code/tab
   content; tab panels constrain `min-width` so marketplace snippets stay in-flow.
+- Showcase evidence panel keeps AA text contrast before related-finding reveal
+  (accent border cue instead of opacity dimming).
 - Launcher forwards `--gdd` / `--source` (and strips a redundant `--json`) to the
   detector CLI so skill and peer examples match runtime behavior.
 

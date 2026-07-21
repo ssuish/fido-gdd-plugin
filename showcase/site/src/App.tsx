@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Report } from "./types";
 import { Hero } from "./components/Hero";
+import { BenefitsSection } from "./components/BenefitsSection";
 import { ProofSection } from "./components/ProofSection";
-import { InstallSection } from "./components/InstallSection";
+import { TrustSection } from "./components/TrustSection";
+import { ConversionSection } from "./components/ConversionSection";
+import { SiteHeader } from "./components/SiteHeader";
+import { SiteFooter } from "./components/SiteFooter";
 import { StateMessage } from "./components/StateMessage";
 import { findRelatedFindingIndex } from "./discovery/scenario";
 import {
@@ -14,11 +18,12 @@ import {
   startHintSequence,
 } from "./discovery/state";
 import { trackShowcaseEvent } from "./analytics";
+import { useTheme } from "./hooks/useTheme";
 
 function App() {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const { theme, toggleTheme } = useTheme();
   const [gameAvailable, setGameAvailable] = useState(false);
   const [discovery, setDiscovery] = useState(() => createInitialDiscovery(0));
   const [proofSeen, setProofSeen] = useState(false);
@@ -39,10 +44,6 @@ function App() {
       .then((response) => setGameAvailable(response.ok))
       .catch(() => setGameAvailable(false));
   }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
 
   const findings = useMemo(() => report?.findings ?? [], [report]);
   const relatedIndex = useMemo(() => findRelatedFindingIndex(findings), [findings]);
@@ -103,50 +104,55 @@ function App() {
 
   return (
     <main className="site-shell">
-      <header className="topbar">
-        <a className="wordmark" href="./">
-          Fido
-        </a>
-        <nav aria-label="Primary navigation">
-          <a href="#walkthrough">Proof</a>
-          <a href="#install">Install</a>
-          <button
-            className="theme-button"
-            type="button"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
-            {theme === "dark" ? "Light mode" : "Dark mode"}
-          </button>
-        </nav>
-      </header>
-
-      <Hero
-        coverage={coverage}
-        matched={report.summary.matched}
-        total={report.summary.total}
-        state={report.state}
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <SiteHeader
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        homeHref="./"
+        navItems={[
+          { href: "#walkthrough", label: "Proof" },
+          { href: "./docs/", label: "Install" },
+        ]}
       />
 
-      <ProofSection
-        report={report}
-        findings={findings}
-        discovery={discovery}
-        gameAvailable={gameAvailable}
-        relatedIndex={relatedIndex}
-        onSelectFinding={handleSelectFinding}
-        onRevealRelated={handleRevealRelated}
-        onDismissHint={handleDismissHint}
-        onProofVisible={handleProofVisible}
-        onAdvanceHint={handleAdvanceHint}
-        findingButtonRefs={findingButtonRefs}
-      />
+      <div id="main-content">
+        <Hero
+          coverage={coverage}
+          matched={report.summary.matched}
+          total={report.summary.total}
+          state={report.state}
+        />
 
-      <InstallSection />
+        <BenefitsSection />
 
-      <footer>
-        <span>Fido</span>
-        <span>Local design-fidelity checks for your game designs.</span>
-      </footer>
+        <ProofSection
+          report={report}
+          findings={findings}
+          discovery={discovery}
+          gameAvailable={gameAvailable}
+          relatedIndex={relatedIndex}
+          onSelectFinding={handleSelectFinding}
+          onRevealRelated={handleRevealRelated}
+          onDismissHint={handleDismissHint}
+          onProofVisible={handleProofVisible}
+          onAdvanceHint={handleAdvanceHint}
+          findingButtonRefs={findingButtonRefs}
+        />
+
+        <TrustSection
+          coverage={coverage}
+          matched={report.summary.matched}
+          total={report.summary.total}
+          state={report.state}
+          findingCount={findings.length}
+        />
+
+        <ConversionSection />
+      </div>
+
+      <SiteFooter docsHref="./docs/" homeHref="./" />
     </main>
   );
 }
