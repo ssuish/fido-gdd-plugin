@@ -5,25 +5,26 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
-import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
-def _plugin_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def _load_detect_drift() -> Any:
-    path = Path(__file__).with_name("detect-drift.py")
-    spec = importlib.util.spec_from_file_location("detect_drift_launcher", path)
+def _load_launcher_runtime() -> Any:
+    path = Path(__file__).with_name("launcher_runtime.py")
+    spec = importlib.util.spec_from_file_location("launcher_runtime", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load launcher helpers from {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+runtime = _load_launcher_runtime()
+
+
+def _plugin_root() -> Path:
+    return cast(Path, runtime.plugin_root(Path(__file__)))
 
 
 def run_context(
@@ -32,21 +33,19 @@ def run_context(
     project_root: Path,
     context_args: list[str],
 ) -> int:
-    environment_vars = os.environ.copy()
-    environment_vars["PYTHONPATH"] = os.pathsep.join(
-        filter(None, (str(source_root), environment_vars.get("PYTHONPATH")))
+    return cast(
+        int,
+        runtime.run_module(
+            python,
+            source_root,
+            [
+                "context",
+                "--project-root",
+                str(project_root),
+                *context_args,
+            ],
+        ),
     )
-    command = [
-        str(python),
-        "-m",
-        "gdd_drift_detector",
-        "context",
-        "--project-root",
-        str(project_root),
-        *context_args,
-    ]
-    completed = subprocess.run(command, env=environment_vars, check=False)
-    return completed.returncode
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,22 +59,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args, unknown = parser.parse_known_args(argv)
 
-    detect_drift = _load_detect_drift()
     plugin_root = _plugin_root()
-    version = detect_drift._read_plugin_version(plugin_root)
-    repository_root = detect_drift.resolve_detector_root(
-        plugin_root, args.detector_root
-    )
-    if repository_root is None or not (repository_root / "pyproject.toml").is_file():
-        print(
-            "detector runtime unavailable; install the standalone plugin package "
-            "(with pyproject.toml, uv.lock, and src/) or set GDD_DETECTOR_ROOT",
-            file=sys.stderr,
-        )
+    repository_root = runtime.resolve_repository(plugin_root, args.detector_root)
+    if repository_root is None:
+        print(runtime.RUNTIME_UNAVAILABLE, file=sys.stderr)
         return 2
 
     try:
-        python = detect_drift.ensure_environment(repository_root, version)
+        python = runtime.ensure_environment(
+            repository_root, runtime.read_plugin_version(plugin_root)
+        )
     except RuntimeError as error:
         print(str(error), file=sys.stderr)
         return 2

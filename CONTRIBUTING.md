@@ -29,7 +29,7 @@ npm --prefix showcase/site install   # when working on the showcase
 | Path | What it is |
 |------|------------|
 | `src/gdd_drift_detector/` | Detector engine: discovery, GDD/GDScript parsing, matching, reports |
-| `plugins/gdd-drift-detector/` | Codex plugin: `setup-gdd`, `detect-drift`, launcher script |
+| `plugins/gdd-drift-detector/` | Codex plugin: `fido-context`, `setup-gdd`, `detect-drift`, SessionStart hooks, launchers |
 | `showcase/godot-deckbuilder/` | Frozen Godot 4.6.3 fixture (GDD + scripts + intentional drift) |
 | `showcase/site/` | Vite/React showcase (`public/drift.json`, Web export, downloads ZIP). Live: Worker `fido` + R2 for `/game/*` |
 | `tests/` | Pytest suite (detector, plugin package, release acceptance, showcase) |

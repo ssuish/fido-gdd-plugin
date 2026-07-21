@@ -40,6 +40,7 @@ def test_plugin_manifest_and_marketplace_reference_shared_detector() -> None:
     assert (PLUGIN / "scripts" / "detect-drift.py").is_file()
     assert (PLUGIN / "scripts" / "fido-context.py").is_file()
     assert (PLUGIN / "scripts" / "fido-context-hook.sh").is_file()
+    assert (PLUGIN / "scripts" / "launcher_runtime.py").is_file()
     assert (PLUGIN / "hooks" / "hooks.json").is_file()
     assert marketplace["plugins"][0]["source"]["path"] == "./plugins/gdd-drift-detector"
     assert chatgpt_marketplace == marketplace
@@ -123,7 +124,7 @@ def test_launcher_forwards_gdd_and_source_to_detector(
 
     monkeypatch.setattr(module, "ensure_environment", lambda *_args: python)
     monkeypatch.setattr(module, "_plugin_root", lambda: PLUGIN)
-    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module.runtime.subprocess, "run", fake_run)
 
     code = module.main(
         [
@@ -393,7 +394,6 @@ def test_context_launcher_forwards_context_subcommand(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module = _load_context_launcher_module()
-    detect = _load_launcher_module()
     package = tmp_path / "standalone"
     (package / "src" / "gdd_drift_detector").mkdir(parents=True)
     (package / "pyproject.toml").write_text("[project]\nname='demo'\n")
@@ -407,10 +407,9 @@ def test_context_launcher_forwards_context_subcommand(
         captured["env"] = env
         return subprocess.CompletedProcess(command, 0)
 
-    monkeypatch.setattr(detect, "ensure_environment", lambda *_args: python)
-    monkeypatch.setattr(module, "_load_detect_drift", lambda: detect)
+    monkeypatch.setattr(module.runtime, "ensure_environment", lambda *_args: python)
     monkeypatch.setattr(module, "_plugin_root", lambda: PLUGIN)
-    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module.runtime.subprocess, "run", fake_run)
 
     code = module.main(
         [

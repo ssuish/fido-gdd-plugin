@@ -26,7 +26,8 @@ requires `public/game/index.html`.
 The downloadable artifact at `showcase/site/public/downloads/gdd-drift-detector.zip`
 must be the **Standalone plugin package** with this layout: `INSTALL.md`, both
 `marketplace.json` copies, `plugins/gdd-drift-detector/.codex-plugin/plugin.json`,
-plugin skills (`setup-gdd`, `detect-drift`), launcher, detector `src/`,
+plugin skills (`fido-context`, `setup-gdd`, `detect-drift`), hooks, launchers,
+  detector `src/`,
 `pyproject.toml`, and `uv.lock`. Marketplace entries must use
 `./plugins/gdd-drift-detector` so both Codex CLI and ChatGPT desktop resolve the
 same extracted plugin. Rebuild it with

@@ -10,8 +10,9 @@ Codex plugin host adapter and a linked showcase fixture. Product name is
 
 - `src/gdd_drift_detector/` — detector package (`scan()`, CLI via
   `python -m gdd_drift_detector`).
-- `plugins/gdd-drift-detector/` — Codex plugin (skills `setup-gdd` /
-  `detect-drift`, launcher under `scripts/`).
+- `plugins/gdd-drift-detector/` — Codex plugin (skills `fido-context` /
+  `setup-gdd` / `detect-drift`, SessionStart hooks, launchers under
+  `scripts/`).
 - `tests/` — pytest suite for detector, plugin packaging, acceptance, and
   showcase contracts.
 - `showcase/godot-deckbuilder/` — frozen Godot 4.6.3 fixture (not a living game

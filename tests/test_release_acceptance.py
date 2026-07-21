@@ -136,6 +136,7 @@ def test_release_versions_and_install_artifacts_are_aligned() -> None:
             "plugins/gdd-drift-detector/scripts/detect-drift.py",
             "plugins/gdd-drift-detector/scripts/fido-context.py",
             "plugins/gdd-drift-detector/scripts/fido-context-hook.sh",
+            "plugins/gdd-drift-detector/scripts/launcher_runtime.py",
             "plugins/gdd-drift-detector/hooks/hooks.json",
             "src/gdd_drift_detector/__init__.py",
             "src/gdd_drift_detector/scanner.py",
@@ -221,6 +222,7 @@ def test_plugin_manifest_and_skill_contract() -> None:
     assert (plugin_root / "skills" / "setup-gdd" / "SKILL.md").is_file()
     assert (plugin_root / "skills" / "fido-context" / "SKILL.md").is_file()
     assert (plugin_root / "scripts" / "detect-drift.py").is_file()
+    assert (plugin_root / "scripts" / "launcher_runtime.py").is_file()
     assert (plugin_root / "hooks" / "hooks.json").is_file()
 
 

@@ -15,6 +15,7 @@ PLUGIN_FILES = (
     "plugins/gdd-drift-detector/scripts/detect-drift.py",
     "plugins/gdd-drift-detector/scripts/fido-context.py",
     "plugins/gdd-drift-detector/scripts/fido-context-hook.sh",
+    "plugins/gdd-drift-detector/scripts/launcher_runtime.py",
     "plugins/gdd-drift-detector/skills/detect-drift/SKILL.md",
     "plugins/gdd-drift-detector/skills/fido-context/SKILL.md",
     "plugins/gdd-drift-detector/skills/setup-gdd/SKILL.md",
